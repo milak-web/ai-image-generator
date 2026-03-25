@@ -64,11 +64,11 @@ threading.Thread(target=worker_loop, daemon=True).start()
 @app.route('/')
 def index():
     # Serve the actual app file directly!
-    html_path = os.path.join(os.getcwd(), 'ai img.html')
+    html_path = os.path.join(os.getcwd(), 'ai-img.html')
     if os.path.exists(html_path):
         return send_file(html_path)
     return jsonify({
-        "error": "ai img.html not found in current directory",
+        "error": "ai-img.html not found in current directory",
         "cwd": os.getcwd()
     }), 404
 
