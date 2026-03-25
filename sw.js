@@ -1,5 +1,6 @@
 const CACHE_NAME = 'ai-studio-v1';
 const ASSETS = [
+  'index.html',
   'ai-img.html',
   'manifest.json',
   'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css',
