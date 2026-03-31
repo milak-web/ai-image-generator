@@ -1127,7 +1127,7 @@
             if (!base) return alert("Please enter API URL");
             
             // AUTO-DETECT PROXY: If we are served from port 8001, use current host
-            const proxyBase = `http://127.0.0.1:8001/proxy`;
+            const proxyBase = `http://10.242.4.242:8001/proxy`;
             
             // Check proxy health
             if (useProxy.checked) {
@@ -1228,9 +1228,9 @@
         }
 
         async function processAsyncBatch(count, payload, headers) {
-            const proxySubmitUrl = `http://127.0.0.1:8001/submit_job`;
-            const proxyStatusBase = `http://127.0.0.1:8001/check_job_status/`;
-            const proxyResultBase = `http://127.0.0.1:8001/check_job/`;
+            const proxySubmitUrl = `http://10.242.4.242:8001/submit_job`;
+            const proxyStatusBase = `http://10.242.4.242:8001/check_job_status/`;
+            const proxyResultBase = `http://10.242.4.242:8001/check_job/`;
             
             // Re-clean base in case it was modified
             let cleanBase = apiUrl.value.trim().replace(/\/$/, '');
