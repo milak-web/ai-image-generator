@@ -1180,7 +1180,15 @@
                 connBadge.textContent = "OFFLINE"; 
                 connBadge.className = "badge-status bg-danger"; 
                 console.error("Connection check failed:", e);
-                if (!useProxy.checked) alert("Connection failed! If you are using a local SD, make sure you started it with --api and --cors-allow-origins=*");
+                
+                // Detailed CORS Error Handling
+                if (!useProxy.checked) {
+                    if (e.toString().includes('TypeError: Failed to fetch')) {
+                        alert("CORS BLOCKED: The browser blocked the connection to your API. \n\nQuick Fix:\n1. Start SD with --cors-allow-origins=*\n2. If using Gradio, ensure it's started with --api and --share\n3. Use a browser extension like 'Allow CORS' to bypass this security check on GitHub Pages.");
+                    } else {
+                        alert("Connection failed! Ensure your Stable Diffusion has --api and --cors-allow-origins=* enabled.");
+                    }
+                }
             }
         }
 
