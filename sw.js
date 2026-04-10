@@ -15,11 +15,12 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Skip cross-origin API calls to avoid CORS issues with the Service Worker
+  // Completely skip cross-origin API calls to avoid CORS issues with the Service Worker
   if (event.request.url.includes('/sdapi/v1/') || event.request.url.includes('gradio.live')) {
     return;
   }
 
+  // Handle local assets normally
   event.respondWith(
     caches.match(event.request).then((response) => {
       return response || fetch(event.request);
