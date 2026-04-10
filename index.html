@@ -1,0 +1,1664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AI Studio Pro - Public Web Tool</title>
+    <!-- PWA Support -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#3b82f6">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="description" content="A powerful public web interface for Stable Diffusion. Use your own local or remote API links.">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/icons/brush.svg">
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --accent-color: #3b82f6;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --panel-height: 100px;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Inter', -apple-system, sans-serif;
+            padding-bottom: var(--panel-height);
+            min-height: 100vh;
+            overflow-x: hidden;
+            transition: background 0.5s ease;
+        }
+
+        .container {
+            max-width: 600px;
+            padding: 15px;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Split View Layout */
+        body.split-view {
+            padding-bottom: 0;
+            overflow: hidden;
+        }
+
+        body.split-view .container {
+            max-width: none;
+            width: 100vw;
+            height: 100vh;
+            margin: 0;
+            padding: 0;
+            display: grid;
+            grid-template-columns: 1fr 450px;
+        }
+
+        body.split-view .web-panel {
+            position: relative;
+            display: flex;
+            transform: none;
+            height: 100vh;
+            z-index: 10;
+        }
+
+        body.split-view .main-app-content {
+            height: 100vh;
+            overflow-y: auto;
+            padding: 20px;
+            background: var(--bg-color);
+            border-left: 1px solid var(--border-color);
+            position: relative;
+            padding-bottom: 120px;
+        }
+
+        body.split-view .fixed-bottom-panel {
+            position: absolute;
+            left: auto;
+            right: 0;
+            width: 450px;
+            bottom: 0;
+        }
+
+        body.split-view .rp-sync-drawer {
+            left: auto;
+            right: 15px;
+            width: 420px;
+            transform: translateX(0) translateY(150%);
+        }
+
+        body.split-view .rp-sync-drawer.active {
+            transform: translateX(0) translateY(0);
+        }
+
+        .header-section {
+            background-color: var(--card-bg);
+            border-radius: 16px;
+            padding: 12px;
+            margin-bottom: 15px;
+            border: 1px solid var(--border-color);
+        }
+
+        .form-control, .form-select {
+            background-color: #0f172a;
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 0.6rem;
+            border-radius: 10px;
+            font-size: 0.9rem;
+        }
+
+        .image-output-container {
+            width: 100%;
+            min-height: 350px;
+            background-color: #000;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            margin-bottom: 20px;
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        .image-output-container img {
+            max-width: 100%;
+            max-height: 80vh;
+            object-fit: contain;
+        }
+
+        .prompt-section {
+            background-color: var(--card-bg);
+            border-radius: 16px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border: 1px solid var(--border-color);
+        }
+
+        .fixed-bottom-panel {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(20px);
+            border-top: 1px solid var(--border-color);
+            padding: 20px 15px; /* Increased padding */
+            z-index: 1050;
+            box-shadow: 0 -10px 30px rgba(0,0,0,0.5);
+            transition: transform 0.3s ease;
+        }
+
+        .control-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            height: 55px; /* Taller controls */
+        }
+
+        .batch-input-group {
+            width: 80px;
+            height: 100%;
+        }
+        
+        .batch-input-group .input-group {
+            height: 100%;
+        }
+
+        .batch-input-group .input-group-text {
+            background-color: var(--card-bg) !important;
+            border-color: var(--border-color) !important;
+            color: var(--text-muted);
+            border-radius: 12px 0 0 12px;
+        }
+
+        .batch-input-group input {
+            height: 100%;
+            background-color: #0f172a !important;
+            border-color: var(--border-color) !important;
+            color: white !important;
+            border-radius: 0 12px 12px 0;
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+
+        .settings-drawer {
+            position: absolute;
+            bottom: 100px;
+            right: 15px; /* Aligned to right */
+            width: 300px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(20px) scale(0.95);
+            transform-origin: bottom right;
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            z-index: 1100;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
+        .settings-drawer.active {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0) scale(1);
+        }
+
+        .res-drawer {
+            position: absolute;
+            bottom: 100px; /* Moved up to avoid overlap */
+            left: 15px;
+            width: 200px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(20px) scale(0.95);
+            transform-origin: bottom left;
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            z-index: 1100;
+        }
+
+        .res-drawer.active {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0) scale(1);
+        }
+
+        .btn-preset {
+            width: 100%;
+            padding: 12px;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            background: #0f172a;
+            text-align: center;
+            transition: all 0.2s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .btn-preset i { opacity: 0; }
+        .btn-preset.active i { opacity: 1; }
+
+        .btn-preset.active {
+            background: var(--accent-color);
+            border-color: var(--accent-color);
+            color: white;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+
+        .btn-res-toggle {
+            width: 55px;
+            height: 55px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            transition: all 0.2s;
+        }
+        
+        .btn-res-toggle:active { transform: scale(0.95); }
+
+        .btn-generate {
+            flex: 1;
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            border: none;
+            height: 100%;
+            font-weight: 800;
+            border-radius: 14px;
+            color: white;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 1.2rem;
+            box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4);
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .btn-generate:active { transform: scale(0.98); }
+        .btn-generate:disabled { filter: grayscale(1); opacity: 0.7; }
+
+        .loading-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(15, 23, 42, 0.8);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        .accordion-item {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px !important;
+            margin-bottom: 15px;
+        }
+        .accordion-button {
+            background-color: var(--card-bg);
+            color: var(--text-main);
+            box-shadow: none !important;
+            padding: 10px;
+            font-size: 0.9rem;
+        }
+        .accordion-button::after { filter: invert(1); scale: 0.8; }
+        .badge-status { font-size: 0.7rem; padding: 4px 10px; border-radius: 20px; }
+
+        /* Web Panel Styles */
+        .web-panel {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg-color);
+            z-index: 2000;
+            display: none;
+            flex-direction: column;
+            transition: transform 0.3s ease;
+            transform: translateY(100%);
+        }
+
+        .web-panel.active {
+            display: flex;
+            transform: translateY(0);
+        }
+
+        /* Immersive Split View */
+        body.split-view .container {
+            max-width: none;
+            margin: 0;
+            padding: 0;
+            display: grid;
+            grid-template-columns: 1fr 450px;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        body.split-view .web-panel {
+            position: relative;
+            display: flex;
+            transform: none;
+            height: 100vh;
+            border-right: 1px solid var(--border-color);
+        }
+
+        body.split-view .main-app-content {
+            height: 100vh;
+            overflow-y: auto;
+            padding: 15px;
+            padding-bottom: 120px;
+        }
+
+        body.split-view .fixed-bottom-panel {
+            left: auto;
+            width: 450px;
+        }
+
+        body.split-view .rp-sync-drawer {
+            left: auto;
+            right: 15px;
+            transform: translateY(150%);
+            width: 420px;
+        }
+
+        body.split-view .rp-sync-drawer.active {
+            transform: translateY(0);
+        }
+
+        .web-header {
+            background: var(--card-bg);
+            padding: 10px 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .web-frame-container {
+            flex: 1;
+            background: white;
+            position: relative;
+        }
+
+        .web-frame {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        .btn-web-toggle {
+            width: 45px;
+            height: 45px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .rp-sync-drawer {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%) translateY(150%);
+            width: 95%;
+            max-width: 600px;
+            background: rgba(15, 23, 42, 0.98);
+            backdrop-filter: blur(25px);
+            border: 1px solid rgba(168, 85, 247, 0.5);
+            border-radius: 20px;
+            padding: 12px;
+            z-index: 2500;
+            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            box-shadow: 0 -10px 40px rgba(0,0,0,0.7);
+        }
+
+        .rp-sync-drawer.active {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .rp-compact-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .keyword-pill {
+            display: inline-block;
+            background: rgba(168, 85, 247, 0.1);
+            color: #d8b4fe;
+            border: 1px solid rgba(168, 85, 247, 0.3);
+            padding: 2px 10px;
+            border-radius: 10px;
+            font-size: 0.75rem;
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
+
+        .dict-panel {
+            background: rgba(0,0,0,0.3);
+            border-radius: 12px;
+            padding: 10px;
+            margin-top: 10px;
+            display: none;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .dict-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255,255,255,0.05);
+            padding: 4px 10px;
+            border-radius: 8px;
+            margin-bottom: 5px;
+            font-size: 0.8rem;
+        }
+
+        .btn-icon-sm {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: var(--card-bg);
+            color: var(--text-main);
+            font-size: 0.8rem;
+        }
+
+        /* Clean up unused layouts */
+        .web-panel, .btn-web-toggle, #splitToggleBtn { display: none !important; }
+        body.split-view .container { display: block !important; grid-template-columns: none !important; }
+    </style>
+</head>
+<body>
+    <div class="container" id="appContainer">
+        <!-- MAIN CONTENT WRAPPER -->
+        <div class="main-app-content" id="mainContent">
+            <!-- TOP: URL INPUT & STATUS -->
+            <div class="header-section">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div class="d-flex gap-2 align-items-center">
+                        <span id="connBadge" class="badge-status bg-danger">OFFLINE</span>
+                        <span id="queueBadge" class="badge bg-primary d-none" style="font-size: 0.65rem; border-radius: 10px;">QUEUED: 0</span>
+                    </div>
+                    <div class="d-flex gap-2 align-items-center">
+                        <button class="btn btn-sm btn-outline-danger py-0" style="font-size: 0.7rem;" onclick="resetApp()">
+                            <i class="fas fa-trash-alt me-1"></i> Reset App
+                        </button>
+                        <button id="rpToggleBtn" class="btn btn-sm btn-outline-warning py-0" onclick="toggleImmersiveMode()">
+                            <i class="fas fa-magic me-1"></i> RP Mode
+                        </button>
+                        <div class="form-check form-switch small mb-0">
+                            <input class="form-check-input" type="checkbox" id="useProxy" checked>
+                            <label class="form-check-label text-muted" for="useProxy">Proxy</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <input type="text" id="apiUrl" class="form-control" placeholder="Paste your SD API or Gradio link here...">
+                    <button class="btn btn-outline-info" onclick="checkConnection()"><i class="fas fa-sync-alt"></i></button>
+                </div>
+            </div>
+
+            <!-- RP IMMERSIVE SYNC DRAWER (COMPACT) -->
+            <div id="rpDrawer" class="rp-sync-drawer">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="fas fa-microchip" style="color:#a855f7;"></i>
+                        <span class="small fw-bold text-muted text-uppercase">Automation Station</span>
+                    </div>
+                    <div class="d-flex gap-2 align-items-center">
+                        <div class="form-check form-switch small mb-0 me-2">
+                            <input class="form-check-input" type="checkbox" id="autoWatch" onchange="toggleWatch()">
+                            <label class="form-check-label text-muted" style="font-size:0.7rem;" for="autoWatch">Sensor</label>
+                        </div>
+                        <button class="btn-icon-sm" onclick="toggleDict()" title="Manage Triggers"><i class="fas fa-book"></i></button>
+                        <button class="btn-icon-sm" onclick="exportDict()" title="Export Memory"><i class="fas fa-save"></i></button>
+                        <button class="btn-icon-sm" onclick="clearRp()"><i class="fas fa-trash"></i></button>
+                    </div>
+                </div>
+                
+                <!-- Fixed Word (Global Context) -->
+                <div class="input-group input-group-sm mb-2" style="position: relative; z-index: 5000;">
+                    <span class="input-group-text bg-dark text-purple border-purple-subtle small" style="font-size: 0.65rem; pointer-events: none;">FIXED WORD</span>
+                    <input type="text" id="globalContext" class="form-control form-control-sm bg-dark text-light border-purple-subtle" 
+                        placeholder="e.g. 'anime style, cinematic'" 
+                        autocomplete="off"
+                        style="position: relative; z-index: 5001; pointer-events: auto !important; cursor: text !important;"
+                        oninput="saveGlobalContext()">
+                </div>
+
+                <!-- Hidden Input for Sensor Fallback -->
+                <textarea id="sensorFallback" style="position: absolute; opacity: 0; pointer-events: none; z-index: -1;"></textarea>
+
+                <div class="rp-compact-row mb-2">
+                    <input type="text" id="rpInput" class="form-control form-control-sm flex-grow-1" placeholder="Paste response here..." style="border-color:rgba(168, 85, 247, 0.3);">
+                    <button class="btn btn-sm btn-primary px-3" onclick="processRpSync()" style="background:#a855f7; border:none; border-radius:8px;">
+                        <i class="fas fa-bolt"></i>
+                    </button>
+                </div>
+
+                <div id="keywordPills" class="d-flex flex-wrap" style="min-height: 20px;"></div>
+
+                <!-- Custom Trigger Dictionary Panel -->
+                <div id="dictPanel" class="dict-panel">
+                    <div class="d-flex gap-2 mb-2">
+                        <input type="text" id="triggerIn" class="form-control form-control-sm" placeholder="Trigger(s) (e.g. 'sky, clouds, blue')">
+                        <input type="text" id="keywordIn" class="form-control form-control-sm" placeholder="AI Keyword (e.g. 'starry night')">
+                        <button class="btn btn-sm btn-info" onclick="addTrigger()"><i class="fas fa-plus"></i></button>
+                    </div>
+                    <div id="dictList">
+                        <!-- Rules go here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- IMAGE OUTPUT -->
+            <div class="image-output-container" id="imageOutput">
+                <div id="placeholder" class="text-center text-muted">
+                    <i class="fas fa-sparkles fa-3x mb-3"></i>
+                    <p>Output Ready</p>
+                </div>
+                <div class="loading-overlay" id="loader">
+                    <div class="spinner-border text-primary mb-2"></div>
+                    <div class="fw-bold">Dreaming...</div>
+                </div>
+                <img id="resultImg" class="d-none">
+                <button id="downloadBtn" class="btn btn-dark btn-sm position-absolute top-0 end-0 m-2 d-none" onclick="downloadImage()">
+                    <i class="fas fa-download"></i>
+                </button>
+            </div>
+
+            <!-- RECENT HISTORY -->
+            <div id="historyStrip" class="d-flex gap-2 overflow-x-auto mb-4 pb-2" style="scrollbar-width: none; min-height: 60px;"></div>
+
+            <!-- PROMPTS -->
+            <div class="prompt-section">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <label class="small fw-bold text-muted">PROMPT</label>
+                    <button class="btn btn-sm btn-outline-secondary py-0" style="font-size: 0.75rem;" onclick="togglePromptHistory()">
+                        <i class="fas fa-history me-1"></i> History
+                    </button>
+                </div>
+                <textarea id="prompt" class="form-control mb-3" rows="3" placeholder="A beautiful sunset..."></textarea>
+                
+                <label class="small fw-bold text-muted mb-2">NEGATIVE PROMPT</label>
+                <textarea id="negativePrompt" class="form-control" rows="2" placeholder="blurry, low quality..."></textarea>
+            </div>
+
+            <!-- ADVANCED (REMOVED DUPLICATES, SETTINGS DRAWER ONLY) -->
+        </div>
+    </div>
+
+    <!-- PROMPT HISTORY MODAL -->
+    <div class="modal fade" id="promptHistoryModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content bg-dark border-secondary text-light">
+                <div class="modal-header border-secondary">
+                    <h6 class="modal-title">Prompt History</h6>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-0">
+                    <div id="promptHistoryList" class="list-group list-group-flush">
+                        <!-- Items go here -->
+                    </div>
+                </div>
+                <div class="modal-footer border-secondary p-2">
+                    <button class="btn btn-sm btn-outline-danger w-100" onclick="clearPromptHistory()">Clear History</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FIXED BOTTOM PANEL -->
+    <div class="fixed-bottom-panel">
+        <div id="resDrawer" class="res-drawer">
+            <div class="small text-muted mb-2 fw-bold text-uppercase" style="font-size: 0.7rem; letter-spacing: 1px;">Aspect Ratio</div>
+            <button class="btn-preset active" onclick="setRes(512, 512, this)">1:1 Square <i class="fas fa-check"></i></button>
+            <button class="btn-preset" onclick="setRes(1024, 1024, this)">1:1 HD <i class="fas fa-check"></i></button>
+            <button class="btn-preset" onclick="setRes(512, 768, this)">2:3 Portrait <i class="fas fa-check"></i></button>
+            <button class="btn-preset" onclick="setRes(768, 512, this)">3:2 Landscape <i class="fas fa-check"></i></button>
+            <button class="btn-preset" onclick="setRes(576, 1024, this)">9:16 Story <i class="fas fa-check"></i></button>
+        </div>
+
+        <div id="settingsDrawer" class="settings-drawer">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="small fw-bold text-uppercase text-muted" style="letter-spacing: 1px;">Settings</span>
+                <button class="btn btn-sm btn-outline-secondary py-0" onclick="toggleSettings()"><i class="fas fa-times"></i></button>
+            </div>
+            
+            <!-- Resolution Manual -->
+            <div class="row g-2">
+                <div class="col-6">
+                    <label class="small text-muted">Width</label>
+                    <input type="number" id="width" class="form-control form-control-sm" value="512" step="64" min="64">
+                </div>
+                <div class="col-6">
+                    <label class="small text-muted">Height</label>
+                    <input type="number" id="height" class="form-control form-control-sm" value="512" step="64" min="64">
+                </div>
+            </div>
+
+            <!-- Steps & CFG -->
+            <div class="row g-2">
+                <div class="col-6">
+                    <label class="small text-muted">Steps</label>
+                    <input type="number" id="steps" class="form-control form-control-sm" value="20" min="1" max="150">
+                </div>
+                <div class="col-6">
+                    <label class="small text-muted">CFG Scale</label>
+                    <input type="number" id="cfg" class="form-control form-control-sm" value="7" step="0.5" min="1" max="30">
+                </div>
+            </div>
+
+            <!-- Sampler -->
+            <div>
+                <label class="small text-muted">Sampling Method</label>
+                <select id="sampler" class="form-select form-select-sm mt-1">
+                    <option value="Euler a">Euler a</option>
+                    <option value="Euler">Euler</option>
+                    <option value="DPM++ 2M Karras">DPM++ 2M Karras</option>
+                    <option value="DPM++ SDE Karras">DPM++ SDE Karras</option>
+                    <option value="DPM++ 2M SDE Karras">DPM++ 2M SDE Karras</option>
+                    <option value="DPM++ 3M SDE Karras">DPM++ 3M SDE Karras</option>
+                    <option value="UniPC">UniPC</option>
+                    <option value="DDIM">DDIM</option>
+                </select>
+            </div>
+            
+            <!-- Seed -->
+             <div>
+                <label class="small text-muted">Seed (-1 for random)</label>
+                <div class="input-group input-group-sm">
+                    <input type="number" id="seed" class="form-control" value="-1">
+                    <button class="btn btn-outline-secondary" onclick="document.getElementById('seed').value = '-1'"><i class="fas fa-dice"></i></button>
+                </div>
+            </div>
+
+            <!-- Hires Fix Toggle -->
+            <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top border-secondary">
+                <label class="small fw-bold text-info mb-0">Hires. fix</label>
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="enableHires">
+                </div>
+            </div>
+            
+            <!-- Hires Details -->
+            <div id="hiresControls" class="row g-2 opacity-50">
+                <div class="col-12">
+                    <label class="small text-muted">Upscaler</label>
+                    <select id="upscaler" class="form-select form-select-sm">
+                        <option value="Latent">Latent</option>
+                        <option value="R-ESRGAN 4x+">R-ESRGAN 4x+</option>
+                        <option value="R-ESRGAN 4x+ Anime6B">R-ESRGAN 4x+ Anime6B</option>
+                    </select>
+                </div>
+                <div class="col-6">
+                    <label class="small text-muted">Upscale by</label>
+                    <input type="number" id="hrScale" class="form-control form-control-sm" value="2" step="0.1" min="1" max="4">
+                </div>
+                <div class="col-6">
+                    <label class="small text-muted">Hires steps</label>
+                    <input type="number" id="hrSteps" class="form-control form-control-sm" value="0" min="0">
+                </div>
+                <div class="col-6">
+                    <label class="small text-muted">Denoising</label>
+                    <input type="number" id="hrDenoise" class="form-control form-control-sm" value="0.7" step="0.05" min="0" max="1">
+                </div>
+            </div>
+        </div>
+
+        <div class="control-row">
+            <button class="btn-res-toggle" onclick="toggleRes()"><i class="fas fa-expand"></i></button>
+            <div class="batch-input-group">
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fas fa-images"></i></span>
+                    <input type="number" id="batchCount" class="form-control text-center px-1" value="1" min="1" max="8">
+                </div>
+            </div>
+            <button id="genBtn" class="btn-generate" onclick="generateImage()">
+                <i class="fas fa-bolt"></i> GENERATE
+            </button>
+            <button class="btn-res-toggle" onclick="toggleSettings()"><i class="fas fa-cog"></i></button>
+        </div>
+        
+        <!-- Hidden inputs removed since they are now in settings drawer -->
+    </div>
+
+    <script>
+        const get = id => document.getElementById(id);
+        const apiUrl = get('apiUrl'), prompt = get('prompt'), negPrompt = get('negativePrompt'),
+              width = get('width'), height = get('height'), steps = get('steps'), 
+              cfg = get('cfg'), sampler = get('sampler'), useProxy = get('useProxy'),
+              batchCount = get('batchCount'), connBadge = get('connBadge'),
+              queueBadge = get('queueBadge'), loader = get('loader'), 
+              resultImg = get('resultImg'), placeholder = get('placeholder'), 
+              downloadBtn = get('downloadBtn'), genBtn = get('genBtn'), 
+              resDrawer = get('resDrawer'), historyStrip = get('historyStrip'),
+              enableHires = get('enableHires'), upscaler = get('upscaler'),
+              hrScale = get('hrScale'), hrSteps = get('hrSteps'), hrDenoise = get('hrDenoise'),
+              hiresControls = get('hiresControls'), settingsDrawer = get('settingsDrawer'), seed = get('seed'),
+              autoWatch = get('autoWatch'),
+              rpDrawer = get('rpDrawer'), rpInput = get('rpInput'), rpToggleBtn = get('rpToggleBtn'),
+              keywordPills = get('keywordPills'), autoGenRp = get('autoGenRp'),
+              dictPanel = get('dictPanel'), dictList = get('dictList'),
+              triggerIn = get('triggerIn'), keywordIn = get('keywordIn'),
+              globalContext = get('globalContext'), sensorFallback = get('sensorFallback'),
+              appContainer = get('appContainer'), mainContent = get('mainContent');
+
+        let generationQueue = [];
+        let isProcessing = false;
+        let activeJobsCount = 0;
+        let promptHistoryModal = null;
+        let isRpMode = false;
+        let lastClipboardText = "";
+        let watchInterval = null;
+        let customDict = JSON.parse(localStorage.getItem('rpDictionary') || '{}');
+
+        // Initial Load
+        if (globalContext) {
+            globalContext.value = localStorage.getItem('globalContext') || '';
+            globalContext.disabled = false;
+            globalContext.readOnly = false;
+        }
+
+        function saveGlobalContext() {
+            if (globalContext) {
+                localStorage.setItem('globalContext', globalContext.value);
+            }
+        }
+
+        function resetApp() {
+            if (confirm("Reset all settings and clear history?")) {
+                localStorage.clear();
+                window.location.reload();
+            }
+        }
+
+        function toggleDict() {
+            dictPanel.style.display = dictPanel.style.display === 'block' ? 'none' : 'block';
+            renderDict();
+        }
+
+        function exportDict() {
+            const data = JSON.stringify(customDict, null, 2);
+            const blob = new Blob([data], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `rp_memory_${new Date().toISOString().slice(0,10)}.json`;
+            a.click();
+        }
+
+        function addTrigger() {
+            const rawTriggers = triggerIn.value.split(',').map(t => t.trim().toLowerCase()).filter(t => t);
+            const k = keywordIn.value.trim();
+            if (rawTriggers.length > 0 && k) {
+                const triggerKey = rawTriggers.join(', ');
+                customDict[triggerKey] = k;
+                localStorage.setItem('rpDictionary', JSON.stringify(customDict));
+                triggerIn.value = '';
+                keywordIn.value = '';
+                renderDict();
+            }
+        }
+
+        function editTrigger(t) {
+            const k = customDict[t];
+            triggerIn.value = t;
+            keywordIn.value = k;
+            delete customDict[t];
+            localStorage.setItem('rpDictionary', JSON.stringify(customDict));
+            renderDict();
+            triggerIn.focus();
+        }
+
+        function removeTrigger(t) {
+            if (confirm(`Delete rule for: ${t}?`)) {
+                delete customDict[t];
+                localStorage.setItem('rpDictionary', JSON.stringify(customDict));
+                renderDict();
+            }
+        }
+
+        function renderDict() {
+            dictList.innerHTML = '';
+            Object.entries(customDict).forEach(([t, k]) => {
+                const item = document.createElement('div');
+                item.className = 'dict-item';
+                item.innerHTML = `
+                    <div class="d-flex flex-column flex-grow-1 overflow-hidden me-2">
+                        <span class="small text-purple fw-bold text-truncate">${t}</span>
+                        <span class="small text-muted text-truncate">${k}</span>
+                    </div>
+                    <div class="d-flex gap-1">
+                        <button class="btn btn-sm btn-link text-info p-1" onclick="editTrigger('${t}')" title="Edit"><i class="fas fa-edit"></i></button>
+                        <button class="btn btn-sm btn-link text-danger p-1" onclick="removeTrigger('${t}')" title="Delete"><i class="fas fa-times"></i></button>
+                    </div>
+                `;
+                dictList.appendChild(item);
+            });
+        }
+
+        function toggleWatch() {
+            if (autoWatch.checked) {
+                console.log("Automation Sensor: ACTIVATED");
+                localStorage.setItem('autoWatch', 'true');
+                
+                // --- CLIPBOARD PERMISSION ---
+                if (navigator.clipboard && navigator.clipboard.readText) {
+                    navigator.clipboard.readText().then(t => { 
+                        console.log("Clipboard Permission Granted.");
+                        lastClipboardText = t; 
+                    }).catch(e => {
+                        console.warn("Clipboard access might require a click first.");
+                    });
+                } else {
+                    console.warn("Clipboard API not available (Non-Secure Context). Using fallback sensor.");
+                }
+                
+                if (watchInterval) clearInterval(watchInterval);
+                watchInterval = setInterval(checkClipboard, 800);
+                window.addEventListener('focus', checkClipboard);
+            } else {
+                if (watchInterval) clearInterval(watchInterval);
+                window.removeEventListener('focus', checkClipboard);
+                localStorage.setItem('autoWatch', 'false');
+                console.log("Automation Sensor: OFFLINE");
+            }
+        }
+
+        async function checkClipboard() {
+            if (!autoWatch.checked) return;
+            
+            // 1. Try Python Server's System Clipboard (Zero-Click, No Focus Required)
+            // Privacy Note: This only works when browsing from the PC itself
+            try {
+                const res = await fetch('/clipboard');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.text && data.text !== lastClipboardText && data.text.trim().length > 3) {
+                        processNewText(data.text);
+                        return;
+                    }
+                } else if (res.status === 403) {
+                    // Mobile/Remote access - silent ignore for privacy
+                    // console.debug("PC Clipboard sync disabled for remote devices");
+                }
+            } catch (e) {
+                // Not running via proxy or server down
+            }
+            
+            // 2. Browser API Attempt (Device-Local Clipboard)
+            // This works on both PC and Mobile, but ONLY for the device you are currently holding
+            if (navigator.clipboard && navigator.clipboard.readText) {
+                try {
+                    const text = await navigator.clipboard.readText();
+                    if (text && text !== lastClipboardText && text.trim().length > 3) {
+                        processNewText(text);
+                    }
+                } catch (e) { }
+            }
+        }
+
+        function processNewText(text) {
+            console.log("SENSOR HIT! Processing:", text.substring(0, 40) + "...");
+            lastClipboardText = text;
+            rpInput.value = text;
+            processRpSync();
+            
+            // Visual feedback
+            rpDrawer.style.borderColor = "#0dcaf0";
+            rpDrawer.classList.add('sync-glow');
+            setTimeout(() => {
+                rpDrawer.style.borderColor = "rgba(168, 85, 247, 0.5)";
+                rpDrawer.classList.remove('sync-glow');
+            }, 1000);
+        }
+
+        // --- GLOBAL PASTE SENSOR (FOOLPROOF) ---
+        document.addEventListener('paste', (e) => {
+            if (!autoWatch.checked) return;
+            try {
+                const text = (e.clipboardData || window.clipboardData).getData('text');
+                if (text && text.trim().length > 3) {
+                    console.log("PASTE SENSOR HIT!");
+                    processNewText(text);
+                }
+            } catch(err) { console.error("Paste capture failed", err); }
+        });
+
+        async function syncFromClipboard() {
+            try {
+                const text = await navigator.clipboard.readText();
+                if (text) {
+                    rpInput.value = text;
+                    processRpSync();
+                }
+            } catch (err) {
+                rpInput.focus();
+                document.execCommand('paste'); 
+                setTimeout(processRpSync, 100);
+            }
+        }
+
+        function toggleImmersiveMode() {
+            isRpMode = !isRpMode;
+            rpToggleBtn.classList.toggle('active');
+            rpToggleBtn.classList.toggle('btn-outline-warning');
+            rpToggleBtn.classList.toggle('btn-warning');
+            rpDrawer.classList.toggle('active');
+            
+            if (isRpMode) {
+                document.body.classList.add('rp-mode-active');
+                rpInput.focus();
+            } else {
+                document.body.classList.remove('rp-mode-active');
+            }
+        }
+
+        function clearRp() {
+            rpInput.value = '';
+            keywordPills.innerHTML = '';
+        }
+
+        function processRpSync() {
+            const text = rpInput.value.trim();
+            if (!text) return;
+
+            const result = extractIntelligence(text);
+            keywordPills.innerHTML = '';
+            
+            // Add Custom Trigger Tags (Purple)
+            result.custom.forEach(word => {
+                const pill = document.createElement('span');
+                pill.className = 'keyword-pill';
+                pill.style.background = 'rgba(168, 85, 247, 0.2)';
+                pill.style.borderColor = '#a855f7';
+                pill.innerHTML = `<i class="fas fa-star me-1"></i> ${word}`;
+                keywordPills.appendChild(pill);
+            });
+
+            // Construct Intelligent Prompt
+            if (result.custom.length === 0) {
+                console.log("No triggers found. Waiting for defined keywords...");
+                return;
+            }
+
+            // Include FIXED WORD (Global Context) if defined
+            const fixed = globalContext.value.trim();
+            let finalPrompt = fixed ? `${fixed}, ` : "";
+            
+            finalPrompt += result.custom.join(', ');
+            
+            prompt.value = finalPrompt;
+            
+            // Auto-gen immediately
+            generateImage();
+        }
+
+        function extractIntelligence(text) {
+            const lowerText = text.toLowerCase();
+            let detectedCustom = [];
+            
+            // Check User's Custom Dictionary - Split the stored triggers by comma
+            Object.entries(customDict).forEach(([triggerKey, keyword]) => {
+                const individualTriggers = triggerKey.split(',').map(t => t.trim().toLowerCase());
+                if (individualTriggers.some(t => lowerText.includes(t))) {
+                    detectedCustom.push(keyword);
+                }
+            });
+
+            return {
+                custom: [...new Set(detectedCustom)]
+            };
+        }
+
+        // Auto-process on paste
+        rpInput.addEventListener('input', () => {
+            if (rpInput.value.length > 20) {
+                processRpSync();
+            }
+        });
+
+        function setApiUrl(url) {
+            apiUrl.value = url;
+            localStorage.setItem('apiUrl', url);
+            checkConnection();
+        }
+
+        function toggleWebPanel() {
+            webPanel.classList.toggle('active');
+            if (webPanel.classList.contains('active') && !webFrame.src) {
+                loadWebSite();
+            }
+        }
+
+        function loadWebSite() {
+            let url = webUrl.value.trim();
+            if (!url.startsWith('http')) url = 'https://' + url;
+            
+            // Use relative path for the proxy to support public access
+            const proxiedUrl = `/proxy?url=${encodeURIComponent(url)}`;
+            webFrame.src = proxiedUrl;
+        }
+
+        function showWebFallback() {
+            webFrame.classList.add('d-none');
+            webErrorOverlay.classList.remove('d-none');
+            webErrorOverlay.classList.add('d-flex');
+        }
+
+        function openExternalBrowser() {
+            let url = webUrl.value.trim();
+            if (!url.startsWith('http')) url = 'https://' + url;
+            window.open(url, '_blank', 'width=1000,height=800');
+            toggleWebPanel(); // Close internal panel to focus on RP drawer
+        }
+
+        // Toggle Hires. fix opacity based on switch
+        enableHires.onchange = () => {
+            hiresControls.style.opacity = enableHires.checked ? "1" : "0.5";
+            localStorage.setItem('enableHires', enableHires.checked);
+        };
+
+        function toggleRes() { 
+            settingsDrawer.classList.remove('active');
+            resDrawer.classList.toggle('active'); 
+        }
+        
+        function toggleSettings() {
+            resDrawer.classList.remove('active');
+            settingsDrawer.classList.toggle('active');
+        }
+
+        function setRes(w, h, btn) {
+            width.value = w; height.value = h;
+            document.querySelectorAll('.btn-preset').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            localStorage.setItem('w', w); localStorage.setItem('h', h);
+            setTimeout(() => resDrawer.classList.remove('active'), 200);
+        }
+
+        async function checkConnection() {
+            // Robust URL cleaning:
+            let base = apiUrl.value.trim().replace(/\/$/, '');
+            const sdIndex = base.indexOf('/sdapi');
+            if (sdIndex !== -1) base = base.substring(0, sdIndex);
+            
+            if (base !== apiUrl.value) {
+                apiUrl.value = base;
+                localStorage.setItem('apiUrl', base);
+            }
+
+            if (!base) return alert("Please enter API URL");
+            
+            // Detection: Is the Python Server (CORS Proxy/Async Engine) available?
+            let isServerAvailable = false;
+            try {
+                const hRes = await fetch(`/health`);
+                if(hRes.ok) isServerAvailable = true;
+            } catch(e) { isServerAvailable = false; }
+
+            const proxyBase = `/proxy`;
+            
+            // Check proxy health
+            if (useProxy.checked && isServerAvailable) {
+                try {
+                    const hRes = await fetch(`/health`);
+                    if(hRes.ok) {
+                        const hData = await hRes.json();
+                        console.log("Proxy Version:", hData.version);
+                    }
+                } catch(e) {
+                    console.warn("Proxy unreachable", e);
+                    connBadge.textContent = "PROXY OFFLINE"; 
+                    connBadge.className = "badge-status bg-danger"; 
+                    return;
+                }
+            } else if (useProxy.checked && !isServerAvailable) {
+                // User wants proxy but we are on static host (GitHub Pages)
+                console.warn("Proxy feature requires the Python server. Switching to Direct Mode.");
+                useProxy.checked = false;
+                localStorage.setItem('useProxy', 'false');
+                alert("Static Mode: Proxy & Async features require the Python server. Switching to Direct Connection. Ensure your Stable Diffusion has CORS enabled.");
+            }
+            
+            let url = useProxy.checked ? proxyBase : `${base}/sdapi/v1/options`;
+            let headers = { 'Content-Type': 'application/json' };
+            if (useProxy.checked) headers['X-Target-URL'] = `${base}/sdapi/v1/options`;
+            
+            connBadge.textContent = "LINKING...";
+            connBadge.className = "badge-status bg-info";
+            try {
+                const res = await fetch(url, { headers: headers, mode: 'cors', method: 'GET' });
+                if (res.ok) { 
+                    connBadge.textContent = "ONLINE"; 
+                    connBadge.className = "badge-status bg-success"; 
+                    localStorage.setItem('apiUrl', apiUrl.value);
+                } else throw Error(`Status ${res.status}`);
+            } catch (e) { 
+                connBadge.textContent = "OFFLINE"; 
+                connBadge.className = "badge-status bg-danger"; 
+                console.error("Connection check failed:", e);
+                if (!useProxy.checked) alert("Connection failed! If you are using a local SD, make sure you started it with --api and --cors-allow-origins=*");
+            }
+        }
+
+        let isGenerating = false;
+        async function generateImage() {
+            if (isGenerating) return;
+            const promptVal = prompt.value.trim();
+            if (!promptVal) return alert('Prompt required');
+            savePromptToHistory(promptVal);
+
+            const count = parseInt(batchCount.value) || 1;
+            const userSeed = parseInt(seed.value);
+            const headers = { 'Content-Type': 'application/json' };
+            let base = apiUrl.value.trim().replace(/\/$/, '');
+            // For SD API, we need the full path
+            const targetUrl = base.includes('/sdapi/v1/') ? base : `${base}/sdapi/v1/txt2img`;
+
+            isGenerating = true;
+            loader.style.display = 'flex';
+            loader.querySelector('.fw-bold').textContent = "Queueing...";
+            placeholder.classList.add('d-none');
+            
+            if (useProxy.checked) {
+                // For Proxy async batch, we'll let it handle each job separately
+                processAsyncBatch(count, {
+                    prompt: promptVal, negative_prompt: negPrompt.value,
+                    steps: parseInt(steps.value), cfg_scale: parseFloat(cfg.value),
+                    width: parseInt(width.value), height: parseInt(height.value),
+                    sampler_name: sampler.value, batch_size: 1,
+                    seed: userSeed,
+                    enable_hr: enableHires.checked,
+                    hr_upscaler: upscaler.value,
+                    hr_scale: parseFloat(hrScale.value),
+                    hr_second_pass_steps: parseInt(hrSteps.value),
+                    denoising_strength: parseFloat(hrDenoise.value)
+                }, headers, targetUrl);
+            } else {
+                for (let i = 0; i < count; i++) {
+                    const jobPayload = {
+                        prompt: promptVal, negative_prompt: negPrompt.value,
+                        steps: parseInt(steps.value), cfg_scale: parseFloat(cfg.value),
+                        width: parseInt(width.value), height: parseInt(height.value),
+                        sampler_name: sampler.value, batch_size: 1,
+                        seed: (userSeed === -1) ? Math.floor(Math.random() * 1000000000) : userSeed,
+                        enable_hr: enableHires.checked,
+                        hr_upscaler: upscaler.value,
+                        hr_scale: parseFloat(hrScale.value),
+                        hr_second_pass_steps: parseInt(hrSteps.value),
+                        denoising_strength: parseFloat(hrDenoise.value)
+                    };
+
+                     generationQueue.push({
+                        url: targetUrl,
+                        targetUrl: targetUrl + `?t=${Date.now()}_${i}`,
+                        payload: jobPayload,
+                        headers: headers,
+                        useAsync: false
+                    });
+                }
+                processQueue();
+            }
+        }
+
+        async function processAsyncBatch(count, payload, headers, targetUrlBase) {
+            const proxySubmitUrl = `/submit_job`;
+            const proxyStatusBase = `/job_status/`;
+            const proxyResultBase = `/job_status/`;
+            
+            // 1. SUBMIT ALL JOBS (FIRE AND FORGET)
+            // This ensures the Server queue is filled immediately, so it never stops working.
+            // We do NOT wait for results here.
+            loader.querySelector('.fw-bold').textContent = `Sending ${count} orders...`;
+            const jobIds = [];
+            
+            try {
+                // Rapid-fire submission loop
+                const submissionPromises = [];
+                for (let i = 0; i < count; i++) {
+                    const submitPayload = { ...payload };
+                    if (submitPayload.seed === -1) {
+                        submitPayload.seed = Math.floor(Math.random() * 1000000000);
+                    }
+                    
+                    // Fire request asynchronously - don't await strictly one-by-one if network allows
+                    // But to keep order sane, we can await slightly or just Promise.all
+                    // Let's do sequential await to ensure order, but with minimal delay.
+                    // The key is we collect IDs first, THEN poll.
+                    
+                    const p = fetch(proxySubmitUrl, {
+                        method: 'POST',
+                        headers: { ...headers, 'X-Target-URL': targetUrlBase + `?t=${Date.now()}_${i}` },
+                        body: JSON.stringify(submitPayload)
+                    }).then(async res => {
+                        if (!res.ok) throw new Error(await res.text());
+                        const data = await res.json();
+                        return data.job_id;
+                    });
+                    
+                    submissionPromises.push(p);
+                    // Tiny throttle to prevent browser from choking on 8 simultaneous fetch calls
+                    if(i % 2 === 0) await new Promise(r => setTimeout(r, 50)); 
+                }
+                
+                // Wait for all IDs to be returned
+                const results = await Promise.all(submissionPromises);
+                jobIds.push(...results);
+                
+            } catch (e) {
+                console.error("Batch submission failed", e);
+                alert(`Failed to send requests: ${e.message}`);
+                loader.style.display = 'none';
+                isGenerating = false;
+                return;
+            }
+
+            // 2. MONITOR & DOWNLOAD (IN BACKGROUND)
+            // The server is already crunching all jobs. We just need to pick them up when ready.
+            updateQueueUI(jobIds.length);
+            
+            // We can poll for ALL jobs in parallel or sequential.
+            // Parallel polling means we get images AS SOON as they are ready, 
+            // without waiting for the previous one to download.
+            // This fixes the "delay" issue.
+            
+            processJobResults(jobIds, proxyStatusBase, proxyResultBase, payload.prompt);
+        }
+
+        async function processJobResults(jobIds, proxyStatusBase, proxyResultBase, promptText) {
+            // Start monitoring ALL jobs simultaneously
+            // Each job tracks its own status and downloads itself when ready.
+            
+            // Set initial count for UI
+            activeJobsCount = jobIds.length;
+            updateQueueUI(activeJobsCount);
+            
+            // Launch parallel trackers
+            jobIds.forEach(jobId => {
+                monitorSingleJob(jobId, proxyStatusBase, proxyResultBase, promptText);
+            });
+            
+            // UI updater loop (just for the text)
+            const monitor = setInterval(() => {
+                if (activeJobsCount <= 0) {
+                    clearInterval(monitor);
+                    isGenerating = false;
+                    loader.style.display = 'none';
+                    updateQueueUI(0);
+                } else {
+                    loader.querySelector('.fw-bold').textContent = `Dreaming... (${activeJobsCount} left)`;
+                }
+            }, 500);
+        }
+
+        async function monitorSingleJob(jobId, statusUrl, resultUrl, promptText) {
+             try {
+                 // POLL STATUS
+                 await new Promise((resolve, reject) => {
+                     let errorCount = 0;
+                     const check = async () => {
+                         try {
+                             const res = await fetch(statusUrl + jobId);
+                             if(res.ok) {
+                                 const data = await res.json();
+                                 if(data.status === 'done') return resolve();
+                                 if(data.status === 'error') return reject(new Error(data.error));
+                                 errorCount = 0;
+                             } else errorCount++;
+                         } catch(e) { errorCount++; }
+                         
+                         if(errorCount > 20) return reject(new Error("Lost connection"));
+                         setTimeout(check, 1000);
+                     };
+                     check();
+                 });
+                 
+                 // DOWNLOAD RESULT (Retries handled here)
+                 let attempts = 0;
+                 while(attempts < 3) {
+                     try {
+                         const res = await fetch(resultUrl + jobId);
+                         if(!res.ok) throw new Error(res.status);
+                         const data = await res.json();
+                         if(data.result && data.result.images) {
+                             displayImage(data.result.images[0], promptText);
+                         }
+                         break;
+                     } catch(e) {
+                         attempts++;
+                         if(attempts >= 3) console.error(`Failed to download job ${jobId}`, e);
+                         await new Promise(r => setTimeout(r, 2000));
+                     }
+                 }
+             } catch(e) {
+                 console.error(`Job ${jobId} failed:`, e);
+             } finally {
+                 activeJobsCount--;
+                 updateQueueUI(activeJobsCount);
+             }
+        }
+
+        async function processQueue() {
+            if (isProcessing || generationQueue.length === 0) return;
+            
+            isProcessing = true;
+            const totalInQueue = generationQueue.length;
+            updateQueueUI(totalInQueue);
+            
+            const job = generationQueue.shift(); // Get next job
+            
+            try {
+                loader.querySelector('.fw-bold').textContent = `Dreaming... (${totalInQueue} left)`;
+                
+                let resultData = null;
+
+                if (job.useAsync) {
+                    // --- ASYNC FLOW ---
+                    // 1. Submit Job
+                    const submitRes = await fetch(job.url, {
+                        method: 'POST',
+                        headers: { ...job.headers, 'X-Target-URL': job.targetUrl },
+                        body: JSON.stringify(job.payload)
+                    });
+                    
+                    if (!submitRes.ok) throw new Error("Failed to submit job");
+                    const submitJson = await submitRes.json();
+                    const jobId = submitJson.job_id;
+                    
+                    // 2. Poll for status (lightweight)
+                    loader.querySelector('.fw-bold').textContent = `Processing... (${totalInQueue} left)`;
+                    
+                    await new Promise((resolve, reject) => {
+                        const poll = setInterval(async () => {
+                            try {
+                                const checkRes = await fetch(`/job_status/${jobId}`);
+                                if (!checkRes.ok) return; // Retry next tick
+                                
+                                const statusJson = await checkRes.json();
+                                if (statusJson.status === 'done') {
+                                    clearInterval(poll);
+                                    resolve(); // Job is done on server, proceed immediately
+                                } else if (statusJson.status === 'error') {
+                                    clearInterval(poll);
+                                    reject(new Error(statusJson.error || "Job failed"));
+                                }
+                                // If pending/processing, continue waiting
+                            } catch (e) {
+                                console.warn("Poll error", e);
+                            }
+                        }, 1000); // Check every 1 second for faster response
+                    });
+
+                    // 3. Start download in background (don't await fully before next job)
+                    fetchResultAndDisplay(jobId, job.payload.prompt);
+
+                } else {
+                    // --- DIRECT FLOW (Legacy/Direct Connection) ---
+                    const response = await fetch(job.targetUrl, { 
+                        method: 'POST', 
+                        headers: job.headers, 
+                        body: JSON.stringify(job.payload) 
+                    });
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    resultData = await response.json();
+                    
+                    // Handle Result for Direct Flow immediately
+                    if (resultData && resultData.images && resultData.images.length > 0) {
+                        displayImage(resultData.images[0], job.payload.prompt);
+                    }
+                }
+
+            } catch (error) {
+                console.error("Generation failed:", error);
+            } finally {
+                isProcessing = false;
+                // Immediately process next item
+                if (generationQueue.length > 0) {
+                    processQueue();
+                } else {
+                    isGenerating = false;
+                    // Only hide loader if queue is truly empty AND no background downloads pending?
+                    // For now, keep simple: if queue empty, hide loader text but keep overlay until images load?
+                    // Actually, let's just update text.
+                    if (document.querySelectorAll('.downloading-indicator').length === 0) {
+                         loader.style.display = 'none';
+                    }
+                    updateQueueUI(0);
+                }
+            }
+        }
+
+        async function fetchResultAndDisplay(jobId, promptText) {
+            try {
+                // Show a small toast or indicator that image is downloading?
+                // For now, just fetch.
+                const res = await fetch(`/job_status/${jobId}`);
+                if (!res.ok) throw new Error("Failed to download result");
+                const data = await res.json();
+                
+                if (data.result && data.result.images && data.result.images.length > 0) {
+                    displayImage(data.result.images[0], promptText);
+                }
+            } catch (e) {
+                console.error("Error downloading result:", e);
+            }
+        }
+
+        function displayImage(base64Data, promptText) {
+            const base64 = `data:image/png;base64,${base64Data}`;
+            resultImg.src = base64;
+            resultImg.classList.remove('d-none');
+            downloadBtn.classList.remove('d-none');
+            
+            const meta = {
+                src: base64,
+                prompt: promptText,
+                date: Date.now()
+            };
+            addToHistory(meta, true);
+        }
+
+        function updateQueueUI(val) {
+            if (val > 0) {
+                queueBadge.classList.remove('d-none');
+                queueBadge.textContent = `QUEUE: ${val}`;
+            } else {
+                queueBadge.classList.add('d-none');
+            }
+        }
+
+        // --- IMAGE HISTORY MANAGEMENT ---
+        function addToHistory(item, saveToStorage = false) {
+            const img = document.createElement('img');
+            img.src = item.src; img.className = "history-item";
+            img.style = "height:60px; width:60px; object-fit:cover; border-radius:8px; border:2px solid transparent; cursor:pointer; flex-shrink:0;";
+            img.onclick = () => { 
+                resultImg.src = item.src; 
+                resultImg.classList.remove('d-none');
+                placeholder.classList.add('d-none');
+                downloadBtn.classList.remove('d-none');
+                prompt.value = item.prompt || "";
+            };
+            historyStrip.prepend(img);
+            historyStrip.scrollTo({ left: 0, behavior: 'smooth' });
+
+            if (saveToStorage) {
+                try {
+                    let history = JSON.parse(localStorage.getItem('imgHistory') || '[]');
+                    history.unshift(item);
+                    
+                    // Simple limit first
+                    if (history.length > 6) history.pop(); 
+                    
+                    try {
+                        localStorage.setItem('imgHistory', JSON.stringify(history));
+                    } catch (e) {
+                        // If quota exceeded, aggressively remove old items until it fits
+                        if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
+                            console.warn("Storage full, removing old images...");
+                            while (history.length > 1) { // Keep at least 1 if possible, but might need 0
+                                history.pop(); // Remove oldest
+                                try {
+                                    localStorage.setItem('imgHistory', JSON.stringify(history));
+                                    break; // Success!
+                                } catch (e2) {
+                                    // Still full, continue loop
+                                }
+                            }
+                        } else {
+                            throw e;
+                        }
+                    }
+                } catch (e) {
+                    console.warn("History storage failed", e);
+                }
+            }
+        }
+
+        function loadHistory() {
+            try {
+                const history = JSON.parse(localStorage.getItem('imgHistory') || '[]');
+                // Reverse to prepend in correct order (oldest first, so newest ends up at start)
+                [...history].reverse().forEach(item => addToHistory(item, false));
+            } catch (e) { console.error("Error loading history", e); }
+        }
+
+        // --- PROMPT HISTORY MANAGEMENT ---
+        function savePromptToHistory(txt) {
+            if (!txt) return;
+            let history = JSON.parse(localStorage.getItem('promptHistory') || '[]');
+            // Remove if exists to move to top
+            history = history.filter(p => p !== txt);
+            history.unshift(txt);
+            if (history.length > 20) history.pop();
+            localStorage.setItem('promptHistory', JSON.stringify(history));
+        }
+
+        function togglePromptHistory() {
+            if (!promptHistoryModal) promptHistoryModal = new bootstrap.Modal(get('promptHistoryModal'));
+            const list = get('promptHistoryList');
+            list.innerHTML = '';
+            const history = JSON.parse(localStorage.getItem('promptHistory') || '[]');
+            
+            if (history.length === 0) {
+                list.innerHTML = '<div class="p-3 text-center text-muted small">No history yet</div>';
+            } else {
+                history.forEach(txt => {
+                    const item = document.createElement('button');
+                    item.className = "list-group-item list-group-item-action bg-dark text-light border-secondary small text-start text-truncate";
+                    item.textContent = txt;
+                    item.onclick = () => {
+                        prompt.value = txt;
+                        promptHistoryModal.hide();
+                    };
+                    list.appendChild(item);
+                });
+            }
+            promptHistoryModal.show();
+        }
+
+        function clearPromptHistory() {
+            if(confirm('Clear all prompt history?')) {
+                localStorage.removeItem('promptHistory');
+                togglePromptHistory(); // Refresh
+            }
+        }
+
+        function downloadImage() {
+            const a = document.createElement('a');
+            a.href = resultImg.src; a.download = `sd-${Date.now()}.png`; a.click();
+        }
+
+        // Init
+        window.onload = () => {
+            // Register Service Worker for PWA
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('sw.js')
+                    .then(reg => console.log('PWA: Service Worker Registered', reg))
+                    .catch(err => console.error('PWA: Registration Failed', err));
+            }
+        };
+
+        loadHistory();
+        const persistentFields = [apiUrl, prompt, steps, cfg, sampler, batchCount, enableHires, upscaler, hrScale, hrSteps, hrDenoise, width, height, seed, globalContext, autoWatch];
+        
+        // Load saved values
+        persistentFields.forEach(f => {
+            if (!f) return;
+            const key = f.id;
+            const saved = localStorage.getItem(key);
+            if (saved !== null) {
+                if (f.type === 'checkbox') {
+                    f.checked = saved === 'true';
+                    if (f === autoWatch) toggleWatch(); // Trigger logic on load
+                }
+                else f.value = saved;
+            }
+            // Auto-save on change
+            f.addEventListener('change', () => {
+                const val = f.type === 'checkbox' ? f.checked : f.value;
+                localStorage.setItem(key, val);
+                if (f === enableHires) hiresControls.style.opacity = f.checked ? "1" : "0.5";
+            });
+            // Also save on input (for text fields) to catch typing before blur
+            if (f.tagName === 'INPUT' || f.tagName === 'TEXTAREA') {
+                f.addEventListener('input', () => {
+                    localStorage.setItem(key, f.value);
+                });
+            }
+        });
+
+        // Auto-check connection if URL is present
+        if (apiUrl.value) {
+            checkConnection();
+        }
+
+        // Ensure initial hires opacity
+        if (enableHires) hiresControls.style.opacity = enableHires.checked ? "1" : "0.5";
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
