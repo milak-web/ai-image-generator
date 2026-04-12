@@ -1,45 +1,34 @@
-# 🖌️ PixelForge Pro: Standalone AI Image Generator
+# 🖌️ PixelForge Pro
 
-A high-performance, professional web interface for **Stable Diffusion**. Built to be entirely standalone, mobile-optimized, and zero-config.
+PixelForge Pro is a professional-grade web interface designed for **Stable Diffusion** creators. It provides a sophisticated, high-performance workspace for building prompts, managing models, and generating high-quality AI art with precision.
 
-🚀 **[Live Demo](https://milak-web.github.io/ai-image-generator/)**
+🚀 **[Launch App](https://milak-web.github.io/ai-image-generator/)**
 
 ---
 
-## ✨ Features
+## ✨ Professional Features
 
-- **🌐 100% Standalone**: No Python server or local setup required. Runs purely in your browser.
-- **🔗 Smart API Bridge**: Automatically detects and bypasses CORS restrictions using a built-in public proxy fallback. Works perfectly with Gradio and local SD APIs.
-- **📱 Mobile Optimized**: A responsive, touch-friendly UI designed for generating art on the go.
-- **🎭 Layered Prompting**: Build complex prompts with a sophisticated layers system.
-- **📦 Model Management**: Keep track of your favorite Stable Diffusion models and settings.
-- **⚡ High Performance**: Lightweight architecture with optimized image history and state persistence using IndexedDB.
-- **🌙 Professional UI**: Modern Dark/Light theme support with a clean, focused aesthetic.
+- **🎭 Advanced Layer System**: Build complex, nuanced prompts using a multi-layer architecture. Perfect for fine-tuning styles, characters, and environments separately.
+- **📦 Comprehensive Model Control**: Full support for Stable Diffusion checkpoints, samplers, and VAE settings. Switch between models and configurations instantly.
+- **📱 Professional Mobile Studio**: A fully responsive, touch-optimized UI that brings the power of a desktop AI studio to your mobile device.
+- **⚡ Performance-First Architecture**: Optimized for speed with persistent state management, ensuring your workspace and history are always ready when you are.
+- **🎨 Modern Creative Interface**: A clean, distraction-free Dark/Light theme designed for long creative sessions.
+- **🛠️ Integrated Hires. Fix**: Advanced upscaling and denoising controls built directly into the generation workflow.
 
 ---
 
 ## 🚀 Getting Started
 
-1.  **Open the App**: Visit the [Live Website](https://milak-web.github.io/ai-image-generator/).
-2.  **Connect your API**: Paste your Stable Diffusion API or Gradio link (e.g., `https://xxxx.gradio.live/`) into the URL box.
-3.  **Sync**: Click the blue sync icon to verify the connection.
-4.  **Create**: Start building your prompts and generating professional AI art!
-
----
-
-## 🛠️ Technology Stack
-
-- **Frontend**: HTML5, CSS3 (Modern Flexbox/Grid), JavaScript (ES6+)
-- **UI Framework**: Bootstrap 5 + FontAwesome 6
-- **Persistence**: IndexedDB + LocalStorage
-- **CORS Handling**: Intelligent direct-to-proxy fallback logic
+1.  **Connect**: Paste your Stable Diffusion API or Gradio endpoint URL.
+2.  **Sync**: Link your workspace to the backend.
+3.  **Create**: Build your layers and generate your vision.
 
 ---
 
 ## 📜 License
 
-This project is licensed under the **MIT License**. Feel free to use, modify, and distribute.
+This project is licensed under the **MIT License**.
 
 ---
 
-*Built with ❤️ for the AI Art Community.*
+*Empowering the next generation of AI artists.*
