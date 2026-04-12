@@ -1131,20 +1131,50 @@
             }
 
             if (!base) return alert("Please enter API URL");
+
+            // --- GITHUB PAGES / HTTPS COMPATIBILITY FIX ---
+            const isGradio = base.includes('gradio.live');
+            const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            const isHttps = window.location.protocol === 'https:';
             
             // Detection: Is the Python Server (CORS Proxy/Async Engine) available?
             let isServerAvailable = false;
-            try {
-                const hRes = await fetch(`/health`);
-                if(hRes.ok) isServerAvailable = true;
-            } catch(e) { isServerAvailable = false; }
-
-            const proxyBase = `/proxy`;
+            let proxyBase = '';
             
-            // Check proxy health
-            if (useProxy.checked && isServerAvailable) {
+            // If we are on localhost, check relative health
+            if (isLocalhost) {
                 try {
                     const hRes = await fetch(`/health`);
+                    if(hRes.ok) {
+                        isServerAvailable = true;
+                        proxyBase = '/proxy';
+                    }
+                } catch(e) {}
+            } else {
+                // If on remote host (GitHub Pages), try localhost:8000 directly
+                try {
+                    const hRes = await fetch(`http://localhost:8000/health`);
+                    if(hRes.ok) {
+                        isServerAvailable = true;
+                        proxyBase = 'http://localhost:8000/proxy';
+                    }
+                } catch(e) {}
+            }
+            
+            // AUTOMATIC MODE SELECTION for GitHub Pages
+            if (!isLocalhost && isHttps) {
+                if (isGradio) {
+                    console.log("HTTPS -> Gradio detected. Forcing Direct Mode (Gradio handles CORS).");
+                    useProxy.checked = false;
+                } else if (!isServerAvailable) {
+                    console.warn("HTTPS -> External SD detected. Local Proxy not found.");
+                }
+            }
+
+            // Check proxy health if manually enabled or required
+            if (useProxy.checked && isServerAvailable) {
+                try {
+                    const hRes = await fetch(proxyBase.replace('/proxy', '/health'));
                     if(hRes.ok) {
                         const hData = await hRes.json();
                         console.log("Proxy Version:", hData.version);
@@ -1155,22 +1185,23 @@
                     connBadge.className = "badge-status bg-danger"; 
                     return;
                 }
-            } else if (useProxy.checked && !isServerAvailable) {
-                // User wants proxy but we are on static host (GitHub Pages)
-                console.warn("Proxy feature requires the Python server. Switching to Direct Mode.");
-                useProxy.checked = false;
-                localStorage.setItem('useProxy', 'false');
-                alert("Static Mode: Proxy & Async features require the Python server. Switching to Direct Connection. Ensure your Stable Diffusion has CORS enabled.");
             }
             
-            let url = useProxy.checked ? proxyBase : `${base}/sdapi/v1/options`;
+            // Determine final URL and headers
+            let url = (useProxy.checked && isServerAvailable) ? proxyBase : `${base}/sdapi/v1/options`;
             let headers = { 'Content-Type': 'application/json' };
-            if (useProxy.checked) headers['X-Target-URL'] = `${base}/sdapi/v1/options`;
+            if (useProxy.checked && isServerAvailable) headers['X-Target-URL'] = `${base}/sdapi/v1/options`;
             
             connBadge.textContent = "LINKING...";
             connBadge.className = "badge-status bg-info";
             try {
-                const res = await fetch(url, { headers: headers, mode: 'cors', method: 'GET' });
+                // For Gradio on HTTPS, we MUST use direct fetch to avoid Mixed Content blocks
+                const res = await fetch(url, { 
+                    headers: headers, 
+                    mode: 'cors', 
+                    method: 'GET' 
+                });
+                
                 if (res.ok) { 
                     connBadge.textContent = "ONLINE"; 
                     connBadge.className = "badge-status bg-success"; 
@@ -1181,12 +1212,14 @@
                 connBadge.className = "badge-status bg-danger"; 
                 console.error("Connection check failed:", e);
                 
-                // Detailed CORS Error Handling
-                if (!useProxy.checked) {
-                    if (e.toString().includes('TypeError: Failed to fetch')) {
-                        alert("CORS BLOCKED: The browser blocked the connection to your API. \n\nQuick Fix:\n1. Start SD with --cors-allow-origins=*\n2. If using Gradio, ensure it's started with --api and --share\n3. Use a browser extension like 'Allow CORS' to bypass this security check on GitHub Pages.");
+                // Detailed CORS/HTTPS Error Handling
+                if (e.toString().includes('TypeError: Failed to fetch')) {
+                    if (isHttps && !base.startsWith('https://')) {
+                        alert("SECURE MODE (HTTPS) BLOCK: You are on GitHub Pages (HTTPS) but trying to connect to an HTTP link. \n\nSolutions:\n1. Use an HTTPS link (Gradio links are HTTPS)\n2. Run the tool locally: http://localhost:8000");
+                    } else if (isGradio) {
+                        alert("GRADIO ERROR: Ensure your Gradio link is still active and --api is enabled.");
                     } else {
-                        alert("Connection failed! Ensure your Stable Diffusion has --api and --cors-allow-origins=* enabled.");
+                        alert("CORS BLOCKED: The browser blocked the connection. \n\nQuick Fix:\n1. Start SD with --cors-allow-origins=*\n2. Use a browser extension like 'Allow CORS'");
                     }
                 }
             }
@@ -1206,12 +1239,31 @@
             // For SD API, we need the full path
             const targetUrl = base.includes('/sdapi/v1/') ? base : `${base}/sdapi/v1/txt2img`;
 
+            // Detect Proxy again just in case
+            let isServerAvailable = false;
+            let proxySubmitUrl = '/submit_job';
+            
+            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                try {
+                    const hRes = await fetch(`/health`);
+                    if(hRes.ok) isServerAvailable = true;
+                } catch(e) {}
+            } else {
+                try {
+                    const hRes = await fetch(`http://localhost:8000/health`);
+                    if(hRes.ok) {
+                        isServerAvailable = true;
+                        proxySubmitUrl = 'http://localhost:8000/submit_job';
+                    }
+                } catch(e) {}
+            }
+
             isGenerating = true;
             loader.style.display = 'flex';
             loader.querySelector('.fw-bold').textContent = "Queueing...";
             placeholder.classList.add('d-none');
             
-            if (useProxy.checked) {
+            if (useProxy.checked && isServerAvailable) {
                 // For Proxy async batch, we'll let it handle each job separately
                 processAsyncBatch(count, {
                     prompt: promptVal, negative_prompt: negPrompt.value,
@@ -1224,7 +1276,7 @@
                     hr_scale: parseFloat(hrScale.value),
                     hr_second_pass_steps: parseInt(hrSteps.value),
                     denoising_strength: parseFloat(hrDenoise.value)
-                }, headers, targetUrl);
+                }, headers, targetUrl, proxySubmitUrl);
             } else {
                 for (let i = 0; i < count; i++) {
                     const jobPayload = {
@@ -1252,10 +1304,9 @@
             }
         }
 
-        async function processAsyncBatch(count, payload, headers, targetUrlBase) {
-            const proxySubmitUrl = `/submit_job`;
-            const proxyStatusBase = `/job_status/`;
-            const proxyResultBase = `/job_status/`;
+        async function processAsyncBatch(count, payload, headers, targetUrlBase, proxySubmitUrl) {
+            const proxyStatusBase = proxySubmitUrl.replace('/submit_job', '/job_status/');
+            const proxyResultBase = proxyStatusBase;
             
             // 1. SUBMIT ALL JOBS (FIRE AND FORGET)
             // This ensures the Server queue is filled immediately, so it never stops working.
@@ -1271,11 +1322,6 @@
                     if (submitPayload.seed === -1) {
                         submitPayload.seed = Math.floor(Math.random() * 1000000000);
                     }
-                    
-                    // Fire request asynchronously - don't await strictly one-by-one if network allows
-                    // But to keep order sane, we can await slightly or just Promise.all
-                    // Let's do sequential await to ensure order, but with minimal delay.
-                    // The key is we collect IDs first, THEN poll.
                     
                     const p = fetch(proxySubmitUrl, {
                         method: 'POST',
@@ -1305,14 +1351,7 @@
             }
 
             // 2. MONITOR & DOWNLOAD (IN BACKGROUND)
-            // The server is already crunching all jobs. We just need to pick them up when ready.
             updateQueueUI(jobIds.length);
-            
-            // We can poll for ALL jobs in parallel or sequential.
-            // Parallel polling means we get images AS SOON as they are ready, 
-            // without waiting for the previous one to download.
-            // This fixes the "delay" issue.
-            
             processJobResults(jobIds, proxyStatusBase, proxyResultBase, payload.prompt);
         }
 
