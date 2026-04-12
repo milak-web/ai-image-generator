@@ -518,7 +518,6 @@
                 <div class="d-flex justify-content-between align-items-center mb-2">
                     <div class="d-flex gap-2 align-items-center">
                         <span id="connBadge" class="badge-status bg-danger">OFFLINE</span>
-                        <span id="queueBadge" class="badge bg-primary d-none" style="font-size: 0.65rem; border-radius: 10px;">QUEUED: 0</span>
                     </div>
                     <div class="d-flex gap-2 align-items-center">
                         <button class="btn btn-sm btn-outline-danger py-0" style="font-size: 0.7rem;" onclick="resetApp()">
@@ -527,10 +526,6 @@
                         <button id="rpToggleBtn" class="btn btn-sm btn-outline-warning py-0" onclick="toggleImmersiveMode()">
                             <i class="fas fa-magic me-1"></i> RP Mode
                         </button>
-                        <div class="form-check form-switch small mb-0">
-                            <input class="form-check-input" type="checkbox" id="useProxy" checked>
-                            <label class="form-check-label text-muted" for="useProxy">Proxy</label>
-                        </div>
                     </div>
                 </div>
                 <div class="input-group">
@@ -910,23 +905,6 @@
         async function checkClipboard() {
             if (!autoWatch.checked) return;
             
-            // 1. Try Python Server's System Clipboard (Zero-Click, No Focus Required)
-            try {
-                const res = await fetch('/clipboard', { targetAddressSpace: 'private' });
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data.text && data.text !== lastClipboardText && data.text.trim().length > 3) {
-                        processNewText(data.text);
-                        return;
-                    }
-                } else if (res.status === 403) {
-                    // Mobile/Remote access - silent ignore for privacy
-                    // console.debug("PC Clipboard sync disabled for remote devices");
-                }
-            } catch (e) {
-                // Not running via proxy or server down
-            }
-            
             // 2. Browser API Attempt (Device-Local Clipboard)
             // This works on both PC and Mobile, but ONLY for the device you are currently holding
             if (navigator.clipboard && navigator.clipboard.readText) {
@@ -1119,7 +1097,6 @@
         }
 
         async function checkConnection() {
-            // Robust URL cleaning:
             let base = apiUrl.value.trim().replace(/\/$/, '');
             const sdIndex = base.indexOf('/sdapi');
             if (sdIndex !== -1) base = base.substring(0, sdIndex);
@@ -1130,76 +1107,16 @@
             }
 
             if (!base) return alert("Please enter API URL");
-
-            // --- GITHUB PAGES / HTTPS COMPATIBILITY FIX ---
-            const isGradio = base.includes('gradio.live');
-            const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-            const isHttps = window.location.protocol === 'https:';
             
-            // Detection: Is the Python Server (CORS Proxy/Async Engine) available?
-            let isServerAvailable = false;
-            let proxyBase = '';
-            
-            // If we are on localhost, check relative health
-            if (isLocalhost) {
-                try {
-                    const hRes = await fetch(`/health`);
-                    if(hRes.ok) {
-                        isServerAvailable = true;
-                        proxyBase = '/proxy';
-                    }
-                } catch(e) {}
-            } else {
-                // If on remote host (GitHub Pages), try 127.0.0.1:8000 directly
-                try {
-                    const hRes = await fetch(`http://127.0.0.1:8000/health`);
-                    if(hRes.ok) {
-                        isServerAvailable = true;
-                        proxyBase = 'http://127.0.0.1:8000/proxy';
-                    }
-                } catch(e) {}
-            }
-            
-            // AUTOMATIC MODE SELECTION for GitHub Pages
-            if (!isLocalhost && isHttps) {
-                if (isServerAvailable) {
-                    console.log("HTTPS -> Local Proxy detected. Enabling Proxy Mode for stability.");
-                    useProxy.checked = true;
-                } else if (isGradio) {
-                    console.log("HTTPS -> Gradio detected. No local proxy. Using Direct Mode.");
-                    useProxy.checked = false;
-                }
-            }
-
-            // Check proxy health if manually enabled or required
-            if (useProxy.checked && isServerAvailable) {
-                try {
-                    const hRes = await fetch(proxyBase.replace('/proxy', '/health'));
-                    if(hRes.ok) {
-                        const hData = await hRes.json();
-                        console.log("Proxy Version:", hData.version);
-                    }
-                } catch(e) {
-                    console.warn("Proxy unreachable", e);
-                    connBadge.textContent = "PROXY OFFLINE"; 
-                    connBadge.className = "badge-status bg-danger"; 
-                    return;
-                }
-            }
-            
-            // Determine final URL and headers
-            let url = (useProxy.checked && isServerAvailable) ? proxyBase : `${base}/sdapi/v1/options`;
-            let headers = { 'Content-Type': 'application/json' };
-            if (useProxy.checked && isServerAvailable) headers['X-Target-URL'] = `${base}/sdapi/v1/options`;
+            let url = `${base}/sdapi/v1/options`;
             
             connBadge.textContent = "LINKING...";
             connBadge.className = "badge-status bg-info";
             try {
-                // For Gradio on HTTPS, we MUST use direct fetch to avoid Mixed Content blocks
                 const res = await fetch(url, { 
-                    headers: headers, 
-                    mode: 'cors', 
-                    method: 'GET'
+                    method: 'GET',
+                    mode: 'cors',
+                    headers: { 'Content-Type': 'application/json' }
                 });
                 
                 if (res.ok) { 
@@ -1211,17 +1128,7 @@
                 connBadge.textContent = "OFFLINE"; 
                 connBadge.className = "badge-status bg-danger"; 
                 console.error("Connection check failed:", e);
-                
-                // Detailed CORS/HTTPS Error Handling
-                if (e.toString().includes('TypeError: Failed to fetch')) {
-                    if (isHttps && !base.startsWith('https://')) {
-                        alert("SECURE MODE (HTTPS) BLOCK: You are on GitHub Pages (HTTPS) but trying to connect to an HTTP link. \n\nSolutions:\n1. Use an HTTPS link (Gradio links are HTTPS)\n2. Run the tool locally: http://localhost:8000");
-                    } else if (isGradio) {
-                        alert("GRADIO ERROR: Ensure your Gradio link is still active and --api is enabled.");
-                    } else {
-                        alert("CORS BLOCKED: The browser blocked the connection. \n\nQuick Fix:\n1. Start SD with --cors-allow-origins=*\n2. Use a browser extension like 'Allow CORS'");
-                    }
-                }
+                alert("Connection failed! Ensure your Stable Diffusion has --api and --cors-allow-origins=* enabled. If using Gradio, ensure it is an active https link.");
             }
         }
 
@@ -1234,57 +1141,27 @@
 
             const count = parseInt(batchCount.value) || 1;
             const userSeed = parseInt(seed.value);
-            const headers = { 'Content-Type': 'application/json' };
             let base = apiUrl.value.trim().replace(/\/$/, '');
-            // For SD API, we need the full path
             const targetUrl = base.includes('/sdapi/v1/') ? base : `${base}/sdapi/v1/txt2img`;
-
-            // Detect Proxy again just in case
-            let isServerAvailable = false;
-            let proxySubmitUrl = '/submit_job';
-            
-            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-                try {
-                    const hRes = await fetch(`/health`);
-                    if(hRes.ok) isServerAvailable = true;
-                } catch(e) {}
-            } else {
-                try {
-                    const hRes = await fetch(`http://127.0.0.1:8000/health`);
-                    if(hRes.ok) {
-                        isServerAvailable = true;
-                        proxySubmitUrl = 'http://127.0.0.1:8000/submit_job';
-                    }
-                } catch(e) {}
-            }
 
             isGenerating = true;
             loader.style.display = 'flex';
-            loader.querySelector('.fw-bold').textContent = "Queueing...";
+            loader.querySelector('.fw-bold').textContent = "Dreaming...";
             placeholder.classList.add('d-none');
             
-            if (useProxy.checked && isServerAvailable) {
-                // For Proxy async batch, we'll let it handle each job separately
-                processAsyncBatch(count, {
-                    prompt: promptVal, negative_prompt: negPrompt.value,
-                    steps: parseInt(steps.value), cfg_scale: parseFloat(cfg.value),
-                    width: parseInt(width.value), height: parseInt(height.value),
-                    sampler_name: sampler.value, batch_size: 1,
-                    seed: userSeed,
-                    enable_hr: enableHires.checked,
-                    hr_upscaler: upscaler.value,
-                    hr_scale: parseFloat(hrScale.value),
-                    hr_second_pass_steps: parseInt(hrSteps.value),
-                    denoising_strength: parseFloat(hrDenoise.value)
-                }, headers, targetUrl, proxySubmitUrl);
-            } else {
+            try {
                 for (let i = 0; i < count; i++) {
-                    const jobPayload = {
-                        prompt: promptVal, negative_prompt: negPrompt.value,
-                        steps: parseInt(steps.value), cfg_scale: parseFloat(cfg.value),
-                        width: parseInt(width.value), height: parseInt(height.value),
-                        sampler_name: sampler.value, batch_size: 1,
-                        seed: (userSeed === -1) ? Math.floor(Math.random() * 1000000000) : userSeed,
+                    const currentSeed = (userSeed === -1) ? Math.floor(Math.random() * 1000000000) : userSeed;
+                    const payload = {
+                        prompt: promptVal, 
+                        negative_prompt: negPrompt.value,
+                        steps: parseInt(steps.value), 
+                        cfg_scale: parseFloat(cfg.value),
+                        width: parseInt(width.value), 
+                        height: parseInt(height.value),
+                        sampler_name: sampler.value, 
+                        batch_size: 1,
+                        seed: currentSeed,
                         enable_hr: enableHires.checked,
                         hr_upscaler: upscaler.value,
                         hr_scale: parseFloat(hrScale.value),
@@ -1292,15 +1169,26 @@
                         denoising_strength: parseFloat(hrDenoise.value)
                     };
 
-                     generationQueue.push({
-                        url: targetUrl,
-                        targetUrl: targetUrl + `?t=${Date.now()}_${i}`,
-                        payload: jobPayload,
-                        headers: headers,
-                        useAsync: false
+                    const response = await fetch(targetUrl, { 
+                        method: 'POST', 
+                        headers: { 'Content-Type': 'application/json' }, 
+                        body: JSON.stringify(payload),
+                        mode: 'cors'
                     });
+
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    const resultData = await response.json();
+                    
+                    if (resultData && resultData.images && resultData.images.length > 0) {
+                        displayImage(resultData.images[0], promptVal);
+                    }
                 }
-                processQueue();
+            } catch (error) {
+                console.error("Generation failed:", error);
+                alert("Generation failed: " + error.message);
+            } finally {
+                isGenerating = false;
+                loader.style.display = 'none';
             }
         }
 
@@ -1669,7 +1557,6 @@
             }
         };
 
-        loadHistory();
         const persistentFields = [apiUrl, prompt, steps, cfg, sampler, batchCount, enableHires, upscaler, hrScale, hrSteps, hrDenoise, width, height, seed, globalContext, autoWatch];
         
         // Load saved values
@@ -1705,6 +1592,8 @@
 
         // Ensure initial hires opacity
         if (enableHires) hiresControls.style.opacity = enableHires.checked ? "1" : "0.5";
+        
+        loadHistory();
     </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
