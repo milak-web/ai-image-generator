@@ -29,10 +29,10 @@ CORS(app)
 
 @app.after_request
 def after_request(response):
-    response.headers.add('Access-Control-Allow-Origin', '*')
-    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Target-URL,Access-Control-Allow-Private-Network')
-    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
-    response.headers.add('Access-Control-Allow-Private-Network', 'true')
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Target-URL, Access-Control-Allow-Private-Network'
+    response.headers['Access-Control-Allow-Private-Network'] = 'true'
     return response
 
 # --- ASYNC JOB ENGINE ---
