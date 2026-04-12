@@ -1096,6 +1096,9 @@
             setTimeout(() => resDrawer.classList.remove('active'), 200);
         }
 
+        let isGenerating = false;
+        let activeProxy = ""; // Store detected working proxy
+
         async function checkConnection() {
             let base = apiUrl.value.trim().replace(/\/$/, '');
             const sdIndex = base.indexOf('/sdapi');
@@ -1108,31 +1111,40 @@
 
             if (!base) return alert("Please enter API URL");
             
-            let url = `${base}/sdapi/v1/options`;
+            const url = `${base}/sdapi/v1/options`;
+            const publicProxy = `https://corsproxy.io/?${encodeURIComponent(url)}`;
             
             connBadge.textContent = "LINKING...";
             connBadge.className = "badge-status bg-info";
+
+            // Try Direct first
             try {
-                const res = await fetch(url, { 
-                    method: 'GET',
-                    mode: 'cors',
-                    headers: { 'Content-Type': 'application/json' }
-                });
-                
+                const res = await fetch(url, { method: 'GET', mode: 'cors' });
                 if (res.ok) { 
-                    connBadge.textContent = "ONLINE"; 
+                    activeProxy = "";
+                    connBadge.textContent = "ONLINE (DIRECT)"; 
+                    connBadge.className = "badge-status bg-success"; 
+                    return;
+                }
+            } catch (e) { console.warn("Direct connection failed, trying public proxy..."); }
+
+            // Try Public Proxy fallback
+            try {
+                const res = await fetch(publicProxy);
+                if (res.ok) {
+                    activeProxy = "https://corsproxy.io/?";
+                    connBadge.textContent = "ONLINE (PROXY)"; 
                     connBadge.className = "badge-status bg-success"; 
                     localStorage.setItem('apiUrl', apiUrl.value);
-                } else throw Error(`Status ${res.status}`);
+                } else throw Error(`Proxy Status ${res.status}`);
             } catch (e) { 
                 connBadge.textContent = "OFFLINE"; 
                 connBadge.className = "badge-status bg-danger"; 
                 console.error("Connection check failed:", e);
-                alert("Connection failed! Ensure your Stable Diffusion has --api and --cors-allow-origins=* enabled. If using Gradio, ensure it is an active https link.");
+                alert("Connection failed! Both direct and proxy connections were blocked. Ensure your Gradio link is active.");
             }
         }
 
-        let isGenerating = false;
         async function generateImage() {
             if (isGenerating) return;
             const promptVal = prompt.value.trim();
@@ -1153,14 +1165,10 @@
                 for (let i = 0; i < count; i++) {
                     const currentSeed = (userSeed === -1) ? Math.floor(Math.random() * 1000000000) : userSeed;
                     const payload = {
-                        prompt: promptVal, 
-                        negative_prompt: negPrompt.value,
-                        steps: parseInt(steps.value), 
-                        cfg_scale: parseFloat(cfg.value),
-                        width: parseInt(width.value), 
-                        height: parseInt(height.value),
-                        sampler_name: sampler.value, 
-                        batch_size: 1,
+                        prompt: promptVal, negative_prompt: negPrompt.value,
+                        steps: parseInt(steps.value), cfg_scale: parseFloat(cfg.value),
+                        width: parseInt(width.value), height: parseInt(height.value),
+                        sampler_name: sampler.value, batch_size: 1,
                         seed: currentSeed,
                         enable_hr: enableHires.checked,
                         hr_upscaler: upscaler.value,
@@ -1169,11 +1177,12 @@
                         denoising_strength: parseFloat(hrDenoise.value)
                     };
 
-                    const response = await fetch(targetUrl, { 
+                    const finalUrl = activeProxy ? `${activeProxy}${encodeURIComponent(targetUrl)}` : targetUrl;
+
+                    const response = await fetch(finalUrl, { 
                         method: 'POST', 
                         headers: { 'Content-Type': 'application/json' }, 
-                        body: JSON.stringify(payload),
-                        mode: 'cors'
+                        body: JSON.stringify(payload)
                     });
 
                     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
