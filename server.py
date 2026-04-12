@@ -94,7 +94,9 @@ def index():
 
 @app.route('/health')
 def health():
-    return jsonify({"status": "ok", "version": VERSION, "ips": get_local_ips()})
+    resp = jsonify({"status": "ok", "version": VERSION, "ips": get_local_ips()})
+    resp.headers['Access-Control-Allow-Private-Network'] = 'true'
+    return resp
 
 @app.route('/proxy', methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'])
 def proxy_query():

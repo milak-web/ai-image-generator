@@ -1153,7 +1153,7 @@
             } else {
                 // If on remote host (GitHub Pages), try localhost:8000 directly
                 try {
-                    const hRes = await fetch(`http://localhost:8000/health`);
+                    const hRes = await fetch(`http://localhost:8000/health`, { targetAddressSpace: 'private' });
                     if(hRes.ok) {
                         isServerAvailable = true;
                         proxyBase = 'http://localhost:8000/proxy';
@@ -1199,7 +1199,8 @@
                 const res = await fetch(url, { 
                     headers: headers, 
                     mode: 'cors', 
-                    method: 'GET' 
+                    method: 'GET',
+                    targetAddressSpace: 'private' // Critical for GitHub -> Localhost
                 });
                 
                 if (res.ok) { 
@@ -1250,7 +1251,7 @@
                 } catch(e) {}
             } else {
                 try {
-                    const hRes = await fetch(`http://localhost:8000/health`);
+                    const hRes = await fetch(`http://localhost:8000/health`, { targetAddressSpace: 'private' });
                     if(hRes.ok) {
                         isServerAvailable = true;
                         proxySubmitUrl = 'http://localhost:8000/submit_job';

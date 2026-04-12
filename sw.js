@@ -15,8 +15,9 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Completely skip cross-origin API calls to avoid CORS issues with the Service Worker
-  if (event.request.url.includes('/sdapi/v1/') || event.request.url.includes('gradio.live')) {
+  const url = event.request.url;
+  // Completely skip API calls and local proxy to avoid Service Worker interference
+  if (url.includes('/sdapi/v1/') || url.includes('gradio.live') || url.includes(':8000') || url.includes('/proxy') || url.includes('/health')) {
     return;
   }
 
