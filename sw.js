@@ -15,9 +15,12 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  const url = event.request.url;
-  // Completely skip API calls and local proxy to avoid Service Worker interference
-  if (url.includes('/sdapi/v1/') || url.includes('gradio.live') || url.includes(':8000') || url.includes('/proxy') || url.includes('/health')) {
+  const url = new URL(event.request.url);
+  const selfOrigin = new URL(self.location.origin).origin;
+
+  // Completely skip any requests that aren't for our own origin's static assets
+  // This prevents the Service Worker from interfering with API calls, proxies, or local servers
+  if (url.origin !== selfOrigin || url.port === '8000' || url.pathname.includes('/sdapi/') || url.pathname.includes('/proxy') || url.pathname.includes('/health')) {
     return;
   }
 

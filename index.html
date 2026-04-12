@@ -911,9 +911,8 @@
             if (!autoWatch.checked) return;
             
             // 1. Try Python Server's System Clipboard (Zero-Click, No Focus Required)
-            // Privacy Note: This only works when browsing from the PC itself
             try {
-                const res = await fetch('/clipboard');
+                const res = await fetch('/clipboard', { targetAddressSpace: 'private' });
                 if (res.ok) {
                     const data = await res.json();
                     if (data.text && data.text !== lastClipboardText && data.text.trim().length > 3) {
@@ -1153,7 +1152,7 @@
             } else {
                 // If on remote host (GitHub Pages), try localhost:8000 directly
                 try {
-                    const hRes = await fetch(`http://localhost:8000/health`, { targetAddressSpace: 'private' });
+                    const hRes = await fetch(`http://localhost:8000/health`, { targetAddressSpace: 'local' });
                     if(hRes.ok) {
                         isServerAvailable = true;
                         proxyBase = 'http://localhost:8000/proxy';
@@ -1163,11 +1162,12 @@
             
             // AUTOMATIC MODE SELECTION for GitHub Pages
             if (!isLocalhost && isHttps) {
-                if (isGradio) {
-                    console.log("HTTPS -> Gradio detected. Forcing Direct Mode (Gradio handles CORS).");
+                if (isServerAvailable) {
+                    console.log("HTTPS -> Local Proxy detected. Enabling Proxy Mode for stability.");
+                    useProxy.checked = true;
+                } else if (isGradio) {
+                    console.log("HTTPS -> Gradio detected. No local proxy. Using Direct Mode.");
                     useProxy.checked = false;
-                } else if (!isServerAvailable) {
-                    console.warn("HTTPS -> External SD detected. Local Proxy not found.");
                 }
             }
 
@@ -1200,7 +1200,7 @@
                     headers: headers, 
                     mode: 'cors', 
                     method: 'GET',
-                    targetAddressSpace: 'private' // Critical for GitHub -> Localhost
+                    targetAddressSpace: isLocalhost ? 'local' : 'private'
                 });
                 
                 if (res.ok) { 
@@ -1251,7 +1251,7 @@
                 } catch(e) {}
             } else {
                 try {
-                    const hRes = await fetch(`http://localhost:8000/health`, { targetAddressSpace: 'private' });
+                    const hRes = await fetch(`http://localhost:8000/health`, { targetAddressSpace: 'local' });
                     if(hRes.ok) {
                         isServerAvailable = true;
                         proxySubmitUrl = 'http://localhost:8000/submit_job';
@@ -1327,7 +1327,8 @@
                     const p = fetch(proxySubmitUrl, {
                         method: 'POST',
                         headers: { ...headers, 'X-Target-URL': targetUrlBase + `?t=${Date.now()}_${i}` },
-                        body: JSON.stringify(submitPayload)
+                        body: JSON.stringify(submitPayload),
+                        targetAddressSpace: proxySubmitUrl.includes('localhost') ? 'local' : 'private'
                     }).then(async res => {
                         if (!res.ok) throw new Error(await res.text());
                         const data = await res.json();
@@ -1389,7 +1390,7 @@
                      let errorCount = 0;
                      const check = async () => {
                          try {
-                             const res = await fetch(statusUrl + jobId);
+                             const res = await fetch(statusUrl + jobId, { targetAddressSpace: statusUrl.includes('localhost') ? 'local' : 'private' });
                              if(res.ok) {
                                  const data = await res.json();
                                  if(data.status === 'done') return resolve();
@@ -1408,7 +1409,7 @@
                  let attempts = 0;
                  while(attempts < 3) {
                      try {
-                         const res = await fetch(resultUrl + jobId);
+                         const res = await fetch(resultUrl + jobId, { targetAddressSpace: resultUrl.includes('localhost') ? 'local' : 'private' });
                          if(!res.ok) throw new Error(res.status);
                          const data = await res.json();
                          if(data.result && data.result.images) {
@@ -1449,7 +1450,8 @@
                     const submitRes = await fetch(job.url, {
                         method: 'POST',
                         headers: { ...job.headers, 'X-Target-URL': job.targetUrl },
-                        body: JSON.stringify(job.payload)
+                        body: JSON.stringify(job.payload),
+                        targetAddressSpace: job.url.includes('localhost') ? 'local' : 'private'
                     });
                     
                     if (!submitRes.ok) throw new Error("Failed to submit job");
@@ -1462,7 +1464,7 @@
                     await new Promise((resolve, reject) => {
                         const poll = setInterval(async () => {
                             try {
-                                const checkRes = await fetch(`/job_status/${jobId}`);
+                                const checkRes = await fetch(`/job_status/${jobId}`, { targetAddressSpace: 'local' });
                                 if (!checkRes.ok) return; // Retry next tick
                                 
                                 const statusJson = await checkRes.json();
@@ -1488,7 +1490,8 @@
                     const response = await fetch(job.targetUrl, { 
                         method: 'POST', 
                         headers: job.headers, 
-                        body: JSON.stringify(job.payload) 
+                        body: JSON.stringify(job.payload),
+                        targetAddressSpace: job.targetUrl.includes('localhost') ? 'local' : 'private'
                     });
                     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                     resultData = await response.json();
@@ -1523,7 +1526,7 @@
             try {
                 // Show a small toast or indicator that image is downloading?
                 // For now, just fetch.
-                const res = await fetch(`/job_status/${jobId}`);
+                const res = await fetch(`/job_status/${jobId}`, { targetAddressSpace: 'local' });
                 if (!res.ok) throw new Error("Failed to download result");
                 const data = await res.json();
                 

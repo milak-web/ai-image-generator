@@ -30,7 +30,7 @@ CORS(app)
 @app.after_request
 def after_request(response):
     response.headers.add('Access-Control-Allow-Origin', '*')
-    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Target-URL')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Target-URL,Access-Control-Allow-Private-Network')
     response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
     response.headers.add('Access-Control-Allow-Private-Network', 'true')
     return response
@@ -85,18 +85,21 @@ threading.Thread(target=cleanup_loop, daemon=True).start()
 
 # --- ROUTES ---
 
-@app.route('/')
+@app.route('/health', methods=['GET', 'OPTIONS'])
+def health():
+    if request.method == 'OPTIONS':
+        resp = Response(status=200)
+        return resp
+    return jsonify({"status": "ok", "version": VERSION, "ips": get_local_ips()})
+
+@app.route('/', methods=['GET', 'OPTIONS'])
 def index():
+    if request.method == 'OPTIONS':
+        return Response(status=200)
     html_path = os.path.join(os.getcwd(), 'index.html')
     if os.path.exists(html_path):
         return send_file(html_path)
     return jsonify({"error": "index.html not found"}), 404
-
-@app.route('/health')
-def health():
-    resp = jsonify({"status": "ok", "version": VERSION, "ips": get_local_ips()})
-    resp.headers['Access-Control-Allow-Private-Network'] = 'true'
-    return resp
 
 @app.route('/proxy', methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'])
 def proxy_query():
