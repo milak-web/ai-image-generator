@@ -619,7 +619,11 @@
                 </div>
                 <div class="loading-overlay" id="loader">
                     <div class="spinner-border text-primary mb-2"></div>
-                    <div class="fw-bold">Dreaming...</div>
+                    <div class="fw-bold mb-2">Dreaming...</div>
+                    <div class="progress w-75" style="height: 10px; background: rgba(255,255,255,0.1);">
+                        <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-info" style="width: 0%"></div>
+                    </div>
+                    <div id="progressText" class="small mt-1 text-muted">0%</div>
                 </div>
                 <img id="resultImg" class="d-none">
                 <button id="downloadBtn" class="btn btn-dark btn-sm position-absolute top-0 end-0 m-2 d-none" onclick="downloadImage()">
@@ -790,6 +794,14 @@
                     <input class="form-check-input" type="checkbox" id="enableHires">
                 </div>
             </div>
+
+            <!-- Save History Toggle -->
+            <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top border-secondary">
+                <label class="small fw-bold text-muted mb-0">Save Image History</label>
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="saveImgHistory" checked>
+                </div>
+            </div>
             
             <!-- Hires Details -->
             <div id="hiresControls" class="row g-2 opacity-50">
@@ -852,7 +864,9 @@
               triggerIn = get('triggerIn'), keywordIn = get('keywordIn'),
               globalContext = get('globalContext'), sensorFallback = get('sensorFallback'),
               appContainer = get('appContainer'), mainContent = get('mainContent'),
-              useDirect = get('useDirect'), connHelp = get('connHelp');
+              useDirect = get('useDirect'), connHelp = get('connHelp'),
+              saveImgHistory = get('saveImgHistory'), progressBar = get('progressBar'),
+              progressText = get('progressText');
 
         let isGenerating = false;
         let activeProxy = "https://corsproxy.io/?"; 
@@ -861,6 +875,7 @@
         let watchInterval = null;
         let customDict = JSON.parse(localStorage.getItem('rpDictionary') || '{}');
         let promptHistoryModal = null;
+        let progressTimer = null;
 
         const PROXIES = [
             "https://corsproxy.io/?",
@@ -873,6 +888,7 @@
             if (localStorage.getItem('useDirect') === 'true') useDirect.checked = true;
             if (localStorage.getItem('apiUrl')) apiUrl.value = localStorage.getItem('apiUrl');
             if (globalContext) globalContext.value = localStorage.getItem('globalContext') || '';
+            if (localStorage.getItem('saveImgHistory') === 'false') saveImgHistory.checked = false;
             loadHistory();
             checkConnection();
         };
@@ -881,6 +897,10 @@
             localStorage.setItem('useDirect', useDirect.checked);
             checkConnection();
         }
+
+        saveImgHistory.onchange = () => {
+            localStorage.setItem('saveImgHistory', saveImgHistory.checked);
+        };
 
         async function checkConnection() {
             let base = apiUrl.value.trim().replace(/\/$/, '');
@@ -951,6 +971,22 @@
             connHelp.classList.remove('d-none');
         }
 
+        async function updateProgress() {
+            let base = apiUrl.value.trim().replace(/\/$/, '');
+            const progressUrl = `${base}/sdapi/v1/progress`;
+            const finalUrl = activeProxy ? `${activeProxy}${encodeURIComponent(progressUrl)}` : progressUrl;
+
+            try {
+                const res = await fetch(finalUrl);
+                if (res.ok) {
+                    const data = await res.json();
+                    const percent = Math.round(data.progress * 100);
+                    progressBar.style.width = `${percent}%`;
+                    progressText.textContent = `${percent}%`;
+                }
+            } catch (e) { }
+        }
+
         async function generateImage() {
             if (isGenerating) return;
             const promptVal = prompt.value.trim();
@@ -965,7 +1001,12 @@
             isGenerating = true;
             loader.style.display = 'flex';
             loader.querySelector('.fw-bold').textContent = "Dreaming...";
+            progressBar.style.width = '0%';
+            progressText.textContent = '0%';
             placeholder.classList.add('d-none');
+
+            // Start progress polling
+            progressTimer = setInterval(updateProgress, 2000);
             
             try {
                 for (let i = 0; i < count; i++) {
@@ -1022,6 +1063,7 @@
             } finally {
                 isGenerating = false;
                 loader.style.display = 'none';
+                if (progressTimer) clearInterval(progressTimer);
             }
         }
 
@@ -1047,7 +1089,7 @@
                 prompt.value = item.prompt;
             };
             historyStrip.prepend(img);
-            if (save) {
+            if (save && saveImgHistory.checked) {
                 try {
                     let history = [];
                     try {
@@ -1055,7 +1097,9 @@
                     } catch(e) { history = []; }
                     
                     history.unshift(item);
-                    if (history.length > 10) history = history.slice(0, 10);
+                    // More aggressive limit for high-quality images
+                    const historyLimit = 6; 
+                    if (history.length > historyLimit) history = history.slice(0, historyLimit);
                     
                     let success = false;
                     while (!success && history.length > 0) {
@@ -1063,12 +1107,11 @@
                             localStorage.setItem('imgHistory', JSON.stringify(history));
                             success = true;
                         } catch (e) {
-                            // Universal quota error check
                             const isQuota = e.name === 'QuotaExceededError' || 
                                             e.name === 'NS_ERROR_DOM_QUOTA_REACHED' || 
                                             e.code === 22 || e.code === 1014;
                             if (isQuota) {
-                                history.pop(); // Remove oldest
+                                history.pop(); 
                                 console.warn("Storage full, dropping oldest image...");
                             } else {
                                 throw e;
