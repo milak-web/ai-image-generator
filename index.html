@@ -862,6 +862,12 @@
         let customDict = JSON.parse(localStorage.getItem('rpDictionary') || '{}');
         let promptHistoryModal = null;
 
+        const PROXIES = [
+            "https://corsproxy.io/?",
+            "https://api.allorigins.win/raw?url="
+        ];
+        let currentProxyIndex = 0;
+
         // Initialization
         window.onload = () => {
             if (localStorage.getItem('useDirect') === 'true') useDirect.checked = true;
@@ -902,21 +908,25 @@
                     return;
                 }
             } catch (e) {
-                console.warn("Direct connection failed, checking proxy...");
+                console.warn("Direct connection failed, checking proxies...");
             }
 
-            // 2. Try Default Proxy
+            // 2. Try Proxies
             if (!useDirect.checked) {
-                try {
-                    const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(testUrl)}`);
-                    if (res.ok) {
-                        activeProxy = "https://corsproxy.io/?";
-                        connBadge.textContent = `ONLINE (PROXY)`;
-                        connBadge.className = "badge-status bg-success";
-                        return;
+                for (let i = 0; i < PROXIES.length; i++) {
+                    try {
+                        const proxyUrl = `${PROXIES[i]}${encodeURIComponent(testUrl)}`;
+                        const res = await fetch(proxyUrl);
+                        if (res.ok) {
+                            activeProxy = PROXIES[i];
+                            currentProxyIndex = i;
+                            connBadge.textContent = `ONLINE (PROXY ${i+1})`;
+                            connBadge.className = "badge-status bg-success";
+                            return;
+                        }
+                    } catch (e) {
+                        console.warn(`Proxy ${i+1} failed...`);
                     }
-                } catch (e) {
-                    console.warn(`Proxy failed...`);
                 }
             }
 
@@ -924,7 +934,6 @@
             if (useDirect.checked) {
                 connBadge.textContent = "CORS BLOCKED";
                 connBadge.className = "badge-status bg-warning";
-                // Show specific CORS help
                 const helpBox = connHelp.querySelector('.p-2');
                 helpBox.classList.remove('border-warning');
                 helpBox.classList.add('border-danger');
@@ -1000,7 +1009,6 @@
                             displayImage(resultData.images[0], promptVal);
                         }
                     } catch (fetchErr) {
-                        // If proxy fails, suggest Direct Mode
                         if (activeProxy && !useDirect.checked) {
                             console.error("Proxy failed during generation, suggesting Direct Mode");
                             connHelp.classList.remove('d-none');
