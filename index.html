@@ -525,6 +525,10 @@
                 <div class="d-flex justify-content-between align-items-center mb-2">
                     <div class="d-flex gap-2 align-items-center">
                         <span id="connBadge" class="badge-status bg-danger">OFFLINE</span>
+                        <div class="form-check form-switch small mb-0 ms-2">
+                            <input class="form-check-input" type="checkbox" id="useDirect" onchange="toggleDirect()">
+                            <label class="form-check-label text-muted" style="font-size:0.7rem;" for="useDirect">Direct Mode</label>
+                        </div>
                     </div>
                     <div class="d-flex gap-2 align-items-center">
                         <button class="btn btn-sm btn-outline-danger py-0" style="font-size: 0.7rem;" onclick="resetApp()">
@@ -538,6 +542,11 @@
                 <div class="input-group">
                     <input type="text" id="apiUrl" class="form-control" placeholder="Paste your SD API or Gradio link here...">
                     <button class="btn btn-outline-info" onclick="checkConnection()"><i class="fas fa-sync-alt"></i></button>
+                </div>
+                <!-- HELP TEXT FOR 504/CORS -->
+                <div id="connHelp" class="mt-2 small text-muted d-none" style="font-size: 0.7rem; line-height: 1.2;">
+                    <i class="fas fa-info-circle me-1 text-info"></i> 
+                    Getting timeouts? Add <code>--cors-allow-origins *</code> to your SD launch command and use <b>Direct Mode</b>.
                 </div>
             </div>
 
@@ -762,393 +771,109 @@
             </button>
             <button class="btn-res-toggle" onclick="toggleSettings()"><i class="fas fa-cog"></i></button>
         </div>
-        
-        <!-- Hidden inputs removed since they are now in settings drawer -->
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         const get = id => document.getElementById(id);
         const apiUrl = get('apiUrl'), prompt = get('prompt'), negPrompt = get('negativePrompt'),
               width = get('width'), height = get('height'), steps = get('steps'), 
-              cfg = get('cfg'), sampler = get('sampler'), useProxy = get('useProxy'),
+              cfg = get('cfg'), sampler = get('sampler'), 
               batchCount = get('batchCount'), connBadge = get('connBadge'),
-              queueBadge = get('queueBadge'), loader = get('loader'), 
-              resultImg = get('resultImg'), placeholder = get('placeholder'), 
-              downloadBtn = get('downloadBtn'), genBtn = get('genBtn'), 
-              resDrawer = get('resDrawer'), historyStrip = get('historyStrip'),
-              enableHires = get('enableHires'), upscaler = get('upscaler'),
-              hrScale = get('hrScale'), hrSteps = get('hrSteps'), hrDenoise = get('hrDenoise'),
-              hiresControls = get('hiresControls'), settingsDrawer = get('settingsDrawer'), seed = get('seed'),
-              autoWatch = get('autoWatch'),
-              rpDrawer = get('rpDrawer'), rpInput = get('rpInput'), rpToggleBtn = get('rpToggleBtn'),
-              keywordPills = get('keywordPills'), autoGenRp = get('autoGenRp'),
+              loader = get('loader'), resultImg = get('resultImg'), 
+              placeholder = get('placeholder'), downloadBtn = get('downloadBtn'), 
+              genBtn = get('genBtn'), resDrawer = get('resDrawer'), 
+              historyStrip = get('historyStrip'), enableHires = get('enableHires'), 
+              upscaler = get('upscaler'), hrScale = get('hrScale'), 
+              hrSteps = get('hrSteps'), hrDenoise = get('hrDenoise'),
+              hiresControls = get('hiresControls'), settingsDrawer = get('settingsDrawer'), 
+              seed = get('seed'), autoWatch = get('autoWatch'),
+              rpDrawer = get('rpDrawer'), rpInput = get('rpInput'), 
+              rpToggleBtn = get('rpToggleBtn'), keywordPills = get('keywordPills'), 
               dictPanel = get('dictPanel'), dictList = get('dictList'),
               triggerIn = get('triggerIn'), keywordIn = get('keywordIn'),
               globalContext = get('globalContext'), sensorFallback = get('sensorFallback'),
-              appContainer = get('appContainer'), mainContent = get('mainContent');
+              appContainer = get('appContainer'), mainContent = get('mainContent'),
+              useDirect = get('useDirect'), connHelp = get('connHelp');
 
-        let generationQueue = [];
-        let isProcessing = false;
-        let activeJobsCount = 0;
-        let promptHistoryModal = null;
+        let isGenerating = false;
+        let activeProxy = ""; 
         let isRpMode = false;
         let lastClipboardText = "";
         let watchInterval = null;
         let customDict = JSON.parse(localStorage.getItem('rpDictionary') || '{}');
+        let promptHistoryModal = null;
 
-        // Initial Load
-        if (globalContext) {
-            globalContext.value = localStorage.getItem('globalContext') || '';
-            globalContext.disabled = false;
-            globalContext.readOnly = false;
-        }
+        // Initialization
+        window.onload = () => {
+            if (localStorage.getItem('useDirect') === 'true') useDirect.checked = true;
+            if (localStorage.getItem('apiUrl')) apiUrl.value = localStorage.getItem('apiUrl');
+            if (globalContext) globalContext.value = localStorage.getItem('globalContext') || '';
+            loadHistory();
+            checkConnection();
+        };
 
-        function saveGlobalContext() {
-            if (globalContext) {
-                localStorage.setItem('globalContext', globalContext.value);
-            }
-        }
-
-        function resetApp() {
-            if (confirm("Reset all settings and clear history?")) {
-                localStorage.clear();
-                window.location.reload();
-            }
-        }
-
-        function toggleDict() {
-            dictPanel.style.display = dictPanel.style.display === 'block' ? 'none' : 'block';
-            renderDict();
-        }
-
-        function exportDict() {
-            const data = JSON.stringify(customDict, null, 2);
-            const blob = new Blob([data], {type: 'application/json'});
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `rp_memory_${new Date().toISOString().slice(0,10)}.json`;
-            a.click();
-        }
-
-        function addTrigger() {
-            const rawTriggers = triggerIn.value.split(',').map(t => t.trim().toLowerCase()).filter(t => t);
-            const k = keywordIn.value.trim();
-            if (rawTriggers.length > 0 && k) {
-                const triggerKey = rawTriggers.join(', ');
-                customDict[triggerKey] = k;
-                localStorage.setItem('rpDictionary', JSON.stringify(customDict));
-                triggerIn.value = '';
-                keywordIn.value = '';
-                renderDict();
-            }
-        }
-
-        function editTrigger(t) {
-            const k = customDict[t];
-            triggerIn.value = t;
-            keywordIn.value = k;
-            delete customDict[t];
-            localStorage.setItem('rpDictionary', JSON.stringify(customDict));
-            renderDict();
-            triggerIn.focus();
-        }
-
-        function removeTrigger(t) {
-            if (confirm(`Delete rule for: ${t}?`)) {
-                delete customDict[t];
-                localStorage.setItem('rpDictionary', JSON.stringify(customDict));
-                renderDict();
-            }
-        }
-
-        function renderDict() {
-            dictList.innerHTML = '';
-            Object.entries(customDict).forEach(([t, k]) => {
-                const item = document.createElement('div');
-                item.className = 'dict-item';
-                item.innerHTML = `
-                    <div class="d-flex flex-column flex-grow-1 overflow-hidden me-2">
-                        <span class="small text-purple fw-bold text-truncate">${t}</span>
-                        <span class="small text-muted text-truncate">${k}</span>
-                    </div>
-                    <div class="d-flex gap-1">
-                        <button class="btn btn-sm btn-link text-info p-1" onclick="editTrigger('${t}')" title="Edit"><i class="fas fa-edit"></i></button>
-                        <button class="btn btn-sm btn-link text-danger p-1" onclick="removeTrigger('${t}')" title="Delete"><i class="fas fa-times"></i></button>
-                    </div>
-                `;
-                dictList.appendChild(item);
-            });
-        }
-
-        function toggleWatch() {
-            if (autoWatch.checked) {
-                console.log("Automation Sensor: ACTIVATED");
-                localStorage.setItem('autoWatch', 'true');
-                
-                // --- CLIPBOARD PERMISSION ---
-                if (navigator.clipboard && navigator.clipboard.readText) {
-                    navigator.clipboard.readText().then(t => { 
-                        console.log("Clipboard Permission Granted.");
-                        lastClipboardText = t; 
-                    }).catch(e => {
-                        console.warn("Clipboard access might require a click first.");
-                    });
-                } else {
-                    console.warn("Clipboard API not available (Non-Secure Context). Using fallback sensor.");
-                }
-                
-                if (watchInterval) clearInterval(watchInterval);
-                watchInterval = setInterval(checkClipboard, 800);
-                window.addEventListener('focus', checkClipboard);
-            } else {
-                if (watchInterval) clearInterval(watchInterval);
-                window.removeEventListener('focus', checkClipboard);
-                localStorage.setItem('autoWatch', 'false');
-                console.log("Automation Sensor: OFFLINE");
-            }
-        }
-
-        async function checkClipboard() {
-            if (!autoWatch.checked) return;
-            
-            // 2. Browser API Attempt (Device-Local Clipboard)
-            // This works on both PC and Mobile, but ONLY for the device you are currently holding
-            if (navigator.clipboard && navigator.clipboard.readText) {
-                try {
-                    const text = await navigator.clipboard.readText();
-                    if (text && text !== lastClipboardText && text.trim().length > 3) {
-                        processNewText(text);
-                    }
-                } catch (e) { }
-            }
-        }
-
-        function processNewText(text) {
-            console.log("SENSOR HIT! Processing:", text.substring(0, 40) + "...");
-            lastClipboardText = text;
-            rpInput.value = text;
-            processRpSync();
-            
-            // Visual feedback
-            rpDrawer.style.borderColor = "#0dcaf0";
-            rpDrawer.classList.add('sync-glow');
-            setTimeout(() => {
-                rpDrawer.style.borderColor = "rgba(168, 85, 247, 0.5)";
-                rpDrawer.classList.remove('sync-glow');
-            }, 1000);
-        }
-
-        // --- GLOBAL PASTE SENSOR (FOOLPROOF) ---
-        document.addEventListener('paste', (e) => {
-            if (!autoWatch.checked) return;
-            try {
-                const text = (e.clipboardData || window.clipboardData).getData('text');
-                if (text && text.trim().length > 3) {
-                    console.log("PASTE SENSOR HIT!");
-                    processNewText(text);
-                }
-            } catch(err) { console.error("Paste capture failed", err); }
-        });
-
-        async function syncFromClipboard() {
-            try {
-                const text = await navigator.clipboard.readText();
-                if (text) {
-                    rpInput.value = text;
-                    processRpSync();
-                }
-            } catch (err) {
-                rpInput.focus();
-                document.execCommand('paste'); 
-                setTimeout(processRpSync, 100);
-            }
-        }
-
-        function toggleImmersiveMode() {
-            isRpMode = !isRpMode;
-            rpToggleBtn.classList.toggle('active');
-            rpToggleBtn.classList.toggle('btn-outline-warning');
-            rpToggleBtn.classList.toggle('btn-warning');
-            rpDrawer.classList.toggle('active');
-            
-            if (isRpMode) {
-                document.body.classList.add('rp-mode-active');
-                rpInput.focus();
-            } else {
-                document.body.classList.remove('rp-mode-active');
-            }
-        }
-
-        function clearRp() {
-            rpInput.value = '';
-            keywordPills.innerHTML = '';
-        }
-
-        function processRpSync() {
-            const text = rpInput.value.trim();
-            if (!text) return;
-
-            const result = extractIntelligence(text);
-            keywordPills.innerHTML = '';
-            
-            // Add Custom Trigger Tags (Purple)
-            result.custom.forEach(word => {
-                const pill = document.createElement('span');
-                pill.className = 'keyword-pill';
-                pill.style.background = 'rgba(168, 85, 247, 0.2)';
-                pill.style.borderColor = '#a855f7';
-                pill.innerHTML = `<i class="fas fa-star me-1"></i> ${word}`;
-                keywordPills.appendChild(pill);
-            });
-
-            // Construct Intelligent Prompt
-            if (result.custom.length === 0) {
-                console.log("No triggers found. Waiting for defined keywords...");
-                return;
-            }
-
-            // Include FIXED WORD (Global Context) if defined
-            const fixed = globalContext.value.trim();
-            let finalPrompt = fixed ? `${fixed}, ` : "";
-            
-            finalPrompt += result.custom.join(', ');
-            
-            prompt.value = finalPrompt;
-            
-            // Auto-gen immediately
-            generateImage();
-        }
-
-        function extractIntelligence(text) {
-            const lowerText = text.toLowerCase();
-            let detectedCustom = [];
-            
-            // Check User's Custom Dictionary - Split the stored triggers by comma
-            Object.entries(customDict).forEach(([triggerKey, keyword]) => {
-                const individualTriggers = triggerKey.split(',').map(t => t.trim().toLowerCase());
-                if (individualTriggers.some(t => lowerText.includes(t))) {
-                    detectedCustom.push(keyword);
-                }
-            });
-
-            return {
-                custom: [...new Set(detectedCustom)]
-            };
-        }
-
-        // Auto-process on paste
-        rpInput.addEventListener('input', () => {
-            if (rpInput.value.length > 20) {
-                processRpSync();
-            }
-        });
-
-        function setApiUrl(url) {
-            apiUrl.value = url;
-            localStorage.setItem('apiUrl', url);
+        function toggleDirect() {
+            localStorage.setItem('useDirect', useDirect.checked);
             checkConnection();
         }
 
-        function toggleWebPanel() {
-            webPanel.classList.toggle('active');
-            if (webPanel.classList.contains('active') && !webFrame.src) {
-                loadWebSite();
-            }
-        }
-
-        function loadWebSite() {
-            let url = webUrl.value.trim();
-            if (!url.startsWith('http')) url = 'https://' + url;
-            
-            // Use relative path for the proxy to support public access
-            const proxiedUrl = `/proxy?url=${encodeURIComponent(url)}`;
-            webFrame.src = proxiedUrl;
-        }
-
-        function showWebFallback() {
-            webFrame.classList.add('d-none');
-            webErrorOverlay.classList.remove('d-none');
-            webErrorOverlay.classList.add('d-flex');
-        }
-
-        function openExternalBrowser() {
-            let url = webUrl.value.trim();
-            if (!url.startsWith('http')) url = 'https://' + url;
-            window.open(url, '_blank', 'width=1000,height=800');
-            toggleWebPanel(); // Close internal panel to focus on RP drawer
-        }
-
-        // Toggle Hires. fix opacity based on switch
-        enableHires.onchange = () => {
-            hiresControls.style.opacity = enableHires.checked ? "1" : "0.5";
-            localStorage.setItem('enableHires', enableHires.checked);
-        };
-
-        function toggleRes() { 
-            settingsDrawer.classList.remove('active');
-            resDrawer.classList.toggle('active'); 
-        }
-        
-        function toggleSettings() {
-            resDrawer.classList.remove('active');
-            settingsDrawer.classList.toggle('active');
-        }
-
-        function setRes(w, h, btn) {
-            width.value = w; height.value = h;
-            document.querySelectorAll('.btn-preset').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            localStorage.setItem('w', w); localStorage.setItem('h', h);
-            setTimeout(() => resDrawer.classList.remove('active'), 200);
-        }
-
-        let isGenerating = false;
-        let activeProxy = ""; // Store detected working proxy
-
         async function checkConnection() {
             let base = apiUrl.value.trim().replace(/\/$/, '');
+            if (!base) return;
+
             const sdIndex = base.indexOf('/sdapi');
             if (sdIndex !== -1) base = base.substring(0, sdIndex);
             
-            if (base !== apiUrl.value) {
-                apiUrl.value = base;
-                localStorage.setItem('apiUrl', base);
-            }
-
-            if (!base) return alert("Please enter API URL");
+            apiUrl.value = base;
+            localStorage.setItem('apiUrl', base);
             
-            const url = `${base}/sdapi/v1/options`;
-            const publicProxy = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+            const testUrl = `${base}/sdapi/v1/options`;
+            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(testUrl)}`;
             
             connBadge.textContent = "LINKING...";
             connBadge.className = "badge-status bg-info";
+            connHelp.classList.add('d-none');
 
-            // Try Direct first
-            try {
-                const res = await fetch(url, { method: 'GET', mode: 'cors' });
-                if (res.ok) { 
-                    activeProxy = "";
-                    connBadge.textContent = "ONLINE (DIRECT)"; 
-                    connBadge.className = "badge-status bg-success"; 
-                    return;
+            if (useDirect.checked) {
+                try {
+                    const res = await fetch(testUrl, { method: 'GET', mode: 'cors' });
+                    if (res.ok) {
+                        activeProxy = "";
+                        connBadge.textContent = "ONLINE (DIRECT)";
+                        connBadge.className = "badge-status bg-success";
+                        return;
+                    }
+                } catch (e) {
+                    connBadge.textContent = "CORS BLOCKED";
+                    connBadge.className = "badge-status bg-warning";
+                    connHelp.classList.remove('d-none');
                 }
-            } catch (e) { console.warn("Direct connection failed, trying public proxy..."); }
-
-            // Try Public Proxy fallback
-            try {
-                const res = await fetch(publicProxy);
-                if (res.ok) {
-                    activeProxy = "https://corsproxy.io/?";
-                    connBadge.textContent = "ONLINE (PROXY)"; 
-                    connBadge.className = "badge-status bg-success"; 
-                    localStorage.setItem('apiUrl', apiUrl.value);
-                } else throw Error(`Proxy Status ${res.status}`);
-            } catch (e) { 
-                connBadge.textContent = "OFFLINE"; 
-                connBadge.className = "badge-status bg-danger"; 
-                console.error("Connection check failed:", e);
-                alert("Connection failed! Both direct and proxy connections were blocked. Ensure your Gradio link is active.");
+            } else {
+                try {
+                    const res = await fetch(proxyUrl);
+                    if (res.ok) {
+                        activeProxy = "https://corsproxy.io/?";
+                        connBadge.textContent = "ONLINE (PROXY)";
+                        connBadge.className = "badge-status bg-success";
+                        return;
+                    }
+                } catch (e) {
+                    console.warn("Proxy failed, trying direct...");
+                }
+                
+                try {
+                    const res = await fetch(testUrl);
+                    if (res.ok) {
+                        activeProxy = "";
+                        connBadge.textContent = "ONLINE (DIRECT)";
+                        connBadge.className = "badge-status bg-success";
+                    } else throw Error("All paths failed");
+                } catch (e) {
+                    connBadge.textContent = "OFFLINE";
+                    connBadge.className = "badge-status bg-danger";
+                    connHelp.classList.remove('d-none');
+                }
             }
         }
 
@@ -1192,9 +917,14 @@
                         body: JSON.stringify(payload)
                     });
 
-                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    if (!response.ok) {
+                        if (response.status === 504) {
+                            alert("GATEWAY TIMEOUT (504)\n\nPublic proxies (like corsproxy.io) have a strict 20-30s time limit. Your image is still generating on the server, but the connection was cut.\n\nFIX: Use 'Direct Mode' (requires --cors-allow-origins * in SD) or reduce resolution/steps.");
+                            throw new Error("504 Gateway Timeout via Proxy");
+                        }
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
                     const resultData = await response.json();
-                    
                     if (resultData && resultData.images && resultData.images.length > 0) {
                         displayImage(resultData.images[0], promptVal);
                     }
@@ -1208,409 +938,198 @@
             }
         }
 
-        async function processAsyncBatch(count, payload, headers, targetUrlBase, proxySubmitUrl) {
-            const proxyStatusBase = proxySubmitUrl.replace('/submit_job', '/job_status/');
-            const proxyResultBase = proxyStatusBase;
-            
-            // 1. SUBMIT ALL JOBS (FIRE AND FORGET)
-            // This ensures the Server queue is filled immediately, so it never stops working.
-            // We do NOT wait for results here.
-            loader.querySelector('.fw-bold').textContent = `Sending ${count} orders...`;
-            const jobIds = [];
-            
-            try {
-                // Rapid-fire submission loop
-                const submissionPromises = [];
-                for (let i = 0; i < count; i++) {
-                    const submitPayload = { ...payload };
-                    if (submitPayload.seed === -1) {
-                        submitPayload.seed = Math.floor(Math.random() * 1000000000);
-                    }
-                    
-                    const p = fetch(proxySubmitUrl, {
-                        method: 'POST',
-                        headers: { ...headers, 'X-Target-URL': targetUrlBase + `?t=${Date.now()}_${i}` },
-                        body: JSON.stringify(submitPayload)
-                    }).then(async res => {
-                        if (!res.ok) throw new Error(await res.text());
-                        const data = await res.json();
-                        return data.job_id;
-                    });
-                    
-                    submissionPromises.push(p);
-                    // Tiny throttle to prevent browser from choking on 8 simultaneous fetch calls
-                    if(i % 2 === 0) await new Promise(r => setTimeout(r, 50)); 
-                }
-                
-                // Wait for all IDs to be returned
-                const results = await Promise.all(submissionPromises);
-                jobIds.push(...results);
-                
-            } catch (e) {
-                console.error("Batch submission failed", e);
-                alert(`Failed to send requests: ${e.message}`);
-                loader.style.display = 'none';
-                isGenerating = false;
-                return;
-            }
-
-            // 2. MONITOR & DOWNLOAD (IN BACKGROUND)
-            updateQueueUI(jobIds.length);
-            processJobResults(jobIds, proxyStatusBase, proxyResultBase, payload.prompt);
-        }
-
-        async function processJobResults(jobIds, proxyStatusBase, proxyResultBase, promptText) {
-            // Start monitoring ALL jobs simultaneously
-            // Each job tracks its own status and downloads itself when ready.
-            
-            // Set initial count for UI
-            activeJobsCount = jobIds.length;
-            updateQueueUI(activeJobsCount);
-            
-            // Launch parallel trackers
-            jobIds.forEach(jobId => {
-                monitorSingleJob(jobId, proxyStatusBase, proxyResultBase, promptText);
-            });
-            
-            // UI updater loop (just for the text)
-            const monitor = setInterval(() => {
-                if (activeJobsCount <= 0) {
-                    clearInterval(monitor);
-                    isGenerating = false;
-                    loader.style.display = 'none';
-                    updateQueueUI(0);
-                } else {
-                    loader.querySelector('.fw-bold').textContent = `Dreaming... (${activeJobsCount} left)`;
-                }
-            }, 500);
-        }
-
-        async function monitorSingleJob(jobId, statusUrl, resultUrl, promptText) {
-             try {
-                 // POLL STATUS
-                 await new Promise((resolve, reject) => {
-                     let errorCount = 0;
-                     const check = async () => {
-                         try {
-                             const res = await fetch(statusUrl + jobId);
-                             if(res.ok) {
-                                 const data = await res.json();
-                                 if(data.status === 'done') return resolve();
-                                 if(data.status === 'error') return reject(new Error(data.error));
-                                 errorCount = 0;
-                             } else errorCount++;
-                         } catch(e) { errorCount++; }
-                         
-                         if(errorCount > 20) return reject(new Error("Lost connection"));
-                         setTimeout(check, 1000);
-                     };
-                     check();
-                 });
-                 
-                 // DOWNLOAD RESULT (Retries handled here)
-                 let attempts = 0;
-                 while(attempts < 3) {
-                     try {
-                         const res = await fetch(resultUrl + jobId);
-                         if(!res.ok) throw new Error(res.status);
-                         const data = await res.json();
-                         if(data.result && data.result.images) {
-                             displayImage(data.result.images[0], promptText);
-                         }
-                         break;
-                     } catch(e) {
-                         attempts++;
-                         if(attempts >= 3) console.error(`Failed to download job ${jobId}`, e);
-                         await new Promise(r => setTimeout(r, 2000));
-                     }
-                 }
-             } catch(e) {
-                 console.error(`Job ${jobId} failed:`, e);
-             } finally {
-                 activeJobsCount--;
-                 updateQueueUI(activeJobsCount);
-             }
-        }
-
-        async function processQueue() {
-            if (isProcessing || generationQueue.length === 0) return;
-            
-            isProcessing = true;
-            const totalInQueue = generationQueue.length;
-            updateQueueUI(totalInQueue);
-            
-            const job = generationQueue.shift(); // Get next job
-            
-            try {
-                loader.querySelector('.fw-bold').textContent = `Dreaming... (${totalInQueue} left)`;
-                
-                let resultData = null;
-
-                if (job.useAsync) {
-                    // --- ASYNC FLOW ---
-                    // 1. Submit Job
-                    const submitRes = await fetch(job.url, {
-                        method: 'POST',
-                        headers: { ...job.headers, 'X-Target-URL': job.targetUrl },
-                        body: JSON.stringify(job.payload)
-                    });
-                    
-                    if (!submitRes.ok) throw new Error("Failed to submit job");
-                    const submitJson = await submitRes.json();
-                    const jobId = submitJson.job_id;
-                    
-                    // 2. Poll for status (lightweight)
-                    loader.querySelector('.fw-bold').textContent = `Processing... (${totalInQueue} left)`;
-                    
-                    await new Promise((resolve, reject) => {
-                        const poll = setInterval(async () => {
-                            try {
-                                const checkRes = await fetch(`/job_status/${jobId}`);
-                                if (!checkRes.ok) return; // Retry next tick
-                                
-                                const statusJson = await checkRes.json();
-                                if (statusJson.status === 'done') {
-                                    clearInterval(poll);
-                                    resolve(); // Job is done on server, proceed immediately
-                                } else if (statusJson.status === 'error') {
-                                    clearInterval(poll);
-                                    reject(new Error(statusJson.error || "Job failed"));
-                                }
-                                // If pending/processing, continue waiting
-                            } catch (e) {
-                                console.warn("Poll error", e);
-                            }
-                        }, 1000); // Check every 1 second for faster response
-                    });
-
-                    // 3. Start download in background (don't await fully before next job)
-                    fetchResultAndDisplay(jobId, job.payload.prompt);
-
-                } else {
-                    // --- DIRECT FLOW (Legacy/Direct Connection) ---
-                    const response = await fetch(job.targetUrl, { 
-                        method: 'POST', 
-                        headers: job.headers, 
-                        body: JSON.stringify(job.payload)
-                    });
-                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                    resultData = await response.json();
-                    
-                    // Handle Result for Direct Flow immediately
-                    if (resultData && resultData.images && resultData.images.length > 0) {
-                        displayImage(resultData.images[0], job.payload.prompt);
-                    }
-                }
-
-            } catch (error) {
-                console.error("Generation failed:", error);
-            } finally {
-                isProcessing = false;
-                // Immediately process next item
-                if (generationQueue.length > 0) {
-                    processQueue();
-                } else {
-                    isGenerating = false;
-                    // Only hide loader if queue is truly empty AND no background downloads pending?
-                    // For now, keep simple: if queue empty, hide loader text but keep overlay until images load?
-                    // Actually, let's just update text.
-                    if (document.querySelectorAll('.downloading-indicator').length === 0) {
-                         loader.style.display = 'none';
-                    }
-                    updateQueueUI(0);
-                }
-            }
-        }
-
-        async function fetchResultAndDisplay(jobId, promptText) {
-            try {
-                // Show a small toast or indicator that image is downloading?
-                // For now, just fetch.
-                const res = await fetch(`/job_status/${jobId}`);
-                if (!res.ok) throw new Error("Failed to download result");
-                const data = await res.json();
-                
-                if (data.result && data.result.images && data.result.images.length > 0) {
-                    displayImage(data.result.images[0], promptText);
-                }
-            } catch (e) {
-                console.error("Error downloading result:", e);
-            }
-        }
-
         function displayImage(base64Data, promptText) {
             const base64 = `data:image/png;base64,${base64Data}`;
             resultImg.src = base64;
             resultImg.classList.remove('d-none');
+            placeholder.classList.add('d-none');
             downloadBtn.classList.remove('d-none');
-            
-            const meta = {
-                src: base64,
-                prompt: promptText,
-                date: Date.now()
-            };
-            addToHistory(meta, true);
+            addToHistory({ src: base64, prompt: promptText, date: Date.now() }, true);
         }
 
-        function updateQueueUI(val) {
-            if (val > 0) {
-                queueBadge.classList.remove('d-none');
-                queueBadge.textContent = `QUEUE: ${val}`;
-            } else {
-                queueBadge.classList.add('d-none');
-            }
-        }
-
-        // --- IMAGE HISTORY MANAGEMENT ---
-        function addToHistory(item, saveToStorage = false) {
+        function addToHistory(item, save = false) {
             const img = document.createElement('img');
-            img.src = item.src; img.className = "history-item";
-            img.style = "height:60px; width:60px; object-fit:cover; border-radius:8px; border:2px solid transparent; cursor:pointer; flex-shrink:0;";
-            img.onclick = () => { 
-                resultImg.src = item.src; 
+            img.src = item.src;
+            img.className = "history-item";
+            img.style = "height:60px; width:60px; object-fit:cover; border-radius:8px; border:1px solid var(--border-color); cursor:pointer; flex-shrink:0;";
+            img.onclick = () => {
+                resultImg.src = item.src;
                 resultImg.classList.remove('d-none');
                 placeholder.classList.add('d-none');
                 downloadBtn.classList.remove('d-none');
-                prompt.value = item.prompt || "";
+                prompt.value = item.prompt;
             };
             historyStrip.prepend(img);
-            historyStrip.scrollTo({ left: 0, behavior: 'smooth' });
-
-            if (saveToStorage) {
-                try {
-                    let history = JSON.parse(localStorage.getItem('imgHistory') || '[]');
-                    history.unshift(item);
-                    
-                    // Simple limit first
-                    if (history.length > 6) history.pop(); 
-                    
-                    try {
-                        localStorage.setItem('imgHistory', JSON.stringify(history));
-                    } catch (e) {
-                        // If quota exceeded, aggressively remove old items until it fits
-                        if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
-                            console.warn("Storage full, removing old images...");
-                            while (history.length > 1) { // Keep at least 1 if possible, but might need 0
-                                history.pop(); // Remove oldest
-                                try {
-                                    localStorage.setItem('imgHistory', JSON.stringify(history));
-                                    break; // Success!
-                                } catch (e2) {
-                                    // Still full, continue loop
-                                }
-                            }
-                        } else {
-                            throw e;
-                        }
-                    }
-                } catch (e) {
-                    console.warn("History storage failed", e);
-                }
+            if (save) {
+                let history = JSON.parse(localStorage.getItem('imgHistory') || '[]');
+                history.unshift(item);
+                if (history.length > 10) history.pop();
+                localStorage.setItem('imgHistory', JSON.stringify(history));
             }
         }
 
         function loadHistory() {
-            try {
-                const history = JSON.parse(localStorage.getItem('imgHistory') || '[]');
-                // Reverse to prepend in correct order (oldest first, so newest ends up at start)
-                [...history].reverse().forEach(item => addToHistory(item, false));
-            } catch (e) { console.error("Error loading history", e); }
+            const history = JSON.parse(localStorage.getItem('imgHistory') || '[]');
+            [...history].reverse().forEach(item => addToHistory(item, false));
         }
 
-        // --- PROMPT HISTORY MANAGEMENT ---
+        function resetApp() {
+            if (confirm("Reset all settings and clear history?")) {
+                localStorage.clear();
+                window.location.reload();
+            }
+        }
+
+        // RP Mode Functions
+        function toggleImmersiveMode() {
+            isRpMode = !isRpMode;
+            rpToggleBtn.classList.toggle('active');
+            rpToggleBtn.classList.toggle('btn-outline-warning');
+            rpToggleBtn.classList.toggle('btn-warning');
+            rpDrawer.classList.toggle('active');
+            if (isRpMode) rpInput.focus();
+        }
+
+        function saveGlobalContext() { localStorage.setItem('globalContext', globalContext.value); }
+        
+        function toggleDict() {
+            dictPanel.style.display = dictPanel.style.display === 'block' ? 'none' : 'block';
+            renderDict();
+        }
+
+        function renderDict() {
+            dictList.innerHTML = '';
+            Object.entries(customDict).forEach(([t, k]) => {
+                const item = document.createElement('div');
+                item.className = 'dict-item';
+                item.innerHTML = `
+                    <div class="d-flex flex-column flex-grow-1 overflow-hidden me-2">
+                        <span class="small text-purple fw-bold text-truncate">${t}</span>
+                        <span class="small text-muted text-truncate">${k}</span>
+                    </div>
+                    <div class="d-flex gap-1">
+                        <button class="btn btn-sm btn-link text-info p-1" onclick="editTrigger('${t}')"><i class="fas fa-edit"></i></button>
+                        <button class="btn btn-sm btn-link text-danger p-1" onclick="removeTrigger('${t}')"><i class="fas fa-times"></i></button>
+                    </div>
+                `;
+                dictList.appendChild(item);
+            });
+        }
+
+        function addTrigger() {
+            const t = triggerIn.value.trim().toLowerCase();
+            const k = keywordIn.value.trim();
+            if (t && k) {
+                customDict[t] = k;
+                localStorage.setItem('rpDictionary', JSON.stringify(customDict));
+                triggerIn.value = ''; keywordIn.value = '';
+                renderDict();
+            }
+        }
+
+        function editTrigger(t) {
+            triggerIn.value = t; keywordIn.value = customDict[t];
+            delete customDict[t];
+            renderDict();
+        }
+
+        function removeTrigger(t) {
+            delete customDict[t];
+            localStorage.setItem('rpDictionary', JSON.stringify(customDict));
+            renderDict();
+        }
+
+        function exportDict() {
+            const blob = new Blob([JSON.stringify(customDict, null, 2)], {type: 'application/json'});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'rp-dictionary.json';
+            a.click();
+        }
+
+        function clearRp() { rpInput.value = ''; keywordPills.innerHTML = ''; }
+
+        function processRpSync() {
+            const text = rpInput.value.toLowerCase();
+            if (!text) return;
+            let detected = [];
+            Object.entries(customDict).forEach(([t, k]) => {
+                if (t.split(',').some(word => text.includes(word.trim()))) detected.push(k);
+            });
+            detected = [...new Set(detected)];
+            keywordPills.innerHTML = '';
+            detected.forEach(k => {
+                const span = document.createElement('span');
+                span.className = 'keyword-pill';
+                span.textContent = k;
+                keywordPills.appendChild(span);
+            });
+            const fixed = globalContext.value.trim();
+            prompt.value = (fixed ? fixed + ", " : "") + detected.join(', ');
+            if (detected.length > 0) generateImage();
+        }
+
+        function toggleWatch() {
+            if (autoWatch.checked) {
+                watchInterval = setInterval(async () => {
+                    try {
+                        const text = await navigator.clipboard.readText();
+                        if (text && text !== lastClipboardText) {
+                            lastClipboardText = text;
+                            rpInput.value = text;
+                            processRpSync();
+                        }
+                    } catch (e) {}
+                }, 1000);
+            } else {
+                clearInterval(watchInterval);
+            }
+        }
+
+        // Settings / UI
+        function toggleRes() { resDrawer.classList.toggle('active'); settingsDrawer.classList.remove('active'); }
+        function toggleSettings() { settingsDrawer.classList.toggle('active'); resDrawer.classList.remove('active'); }
+        function setRes(w, h, btn) {
+            width.value = w; height.value = h;
+            document.querySelectorAll('.btn-preset').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            resDrawer.classList.remove('active');
+        }
+
         function savePromptToHistory(txt) {
-            if (!txt) return;
             let history = JSON.parse(localStorage.getItem('promptHistory') || '[]');
-            // Remove if exists to move to top
-            history = history.filter(p => p !== txt);
-            history.unshift(txt);
-            if (history.length > 20) history.pop();
+            history = [txt, ...history.filter(p => p !== txt)].slice(0, 20);
             localStorage.setItem('promptHistory', JSON.stringify(history));
         }
 
         function togglePromptHistory() {
-            if (!promptHistoryModal) promptHistoryModal = new bootstrap.Modal(get('promptHistoryModal'));
+            const modal = new bootstrap.Modal(get('promptHistoryModal'));
             const list = get('promptHistoryList');
             list.innerHTML = '';
             const history = JSON.parse(localStorage.getItem('promptHistory') || '[]');
-            
-            if (history.length === 0) {
-                list.innerHTML = '<div class="p-3 text-center text-muted small">No history yet</div>';
-            } else {
-                history.forEach(txt => {
-                    const item = document.createElement('button');
-                    item.className = "list-group-item list-group-item-action bg-dark text-light border-secondary small text-start text-truncate";
-                    item.textContent = txt;
-                    item.onclick = () => {
-                        prompt.value = txt;
-                        promptHistoryModal.hide();
-                    };
-                    list.appendChild(item);
-                });
-            }
-            promptHistoryModal.show();
+            history.forEach(txt => {
+                const btn = document.createElement('button');
+                btn.className = "list-group-item list-group-item-action bg-dark text-light border-secondary small";
+                btn.textContent = txt;
+                btn.onclick = () => { prompt.value = txt; modal.hide(); };
+                list.appendChild(btn);
+            });
+            modal.show();
         }
 
         function clearPromptHistory() {
-            if(confirm('Clear all prompt history?')) {
-                localStorage.removeItem('promptHistory');
-                togglePromptHistory(); // Refresh
-            }
+            localStorage.removeItem('promptHistory');
+            get('promptHistoryList').innerHTML = '';
         }
 
         function downloadImage() {
             const a = document.createElement('a');
-            a.href = resultImg.src; a.download = `sd-${Date.now()}.png`; a.click();
+            a.href = resultImg.src; a.download = `pixel-forge-${Date.now()}.png`; a.click();
         }
 
-        // Init
-        window.onload = () => {
-            // Register Service Worker for PWA
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('sw.js')
-                    .then(reg => console.log('PWA: Service Worker Registered', reg))
-                    .catch(err => console.error('PWA: Registration Failed', err));
-            }
+        enableHires.onchange = () => {
+            hiresControls.style.opacity = enableHires.checked ? "1" : "0.5";
         };
-
-        const persistentFields = [apiUrl, prompt, steps, cfg, sampler, batchCount, enableHires, upscaler, hrScale, hrSteps, hrDenoise, width, height, seed, globalContext, autoWatch];
-        
-        // Load saved values
-        persistentFields.forEach(f => {
-            if (!f) return;
-            const key = f.id;
-            const saved = localStorage.getItem(key);
-            if (saved !== null) {
-                if (f.type === 'checkbox') {
-                    f.checked = saved === 'true';
-                    if (f === autoWatch) toggleWatch(); // Trigger logic on load
-                }
-                else f.value = saved;
-            }
-            // Auto-save on change
-            f.addEventListener('change', () => {
-                const val = f.type === 'checkbox' ? f.checked : f.value;
-                localStorage.setItem(key, val);
-                if (f === enableHires) hiresControls.style.opacity = f.checked ? "1" : "0.5";
-            });
-            // Also save on input (for text fields) to catch typing before blur
-            if (f.tagName === 'INPUT' || f.tagName === 'TEXTAREA') {
-                f.addEventListener('input', () => {
-                    localStorage.setItem(key, f.value);
-                });
-            }
-        });
-
-        // Auto-check connection if URL is present
-        if (apiUrl.value) {
-            checkConnection();
-        }
-
-        // Ensure initial hires opacity
-        if (enableHires) hiresControls.style.opacity = enableHires.checked ? "1" : "0.5";
-        
-        loadHistory();
     </script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
