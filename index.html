@@ -686,6 +686,8 @@
             savePromptToHistory(promptVal);
 
             const count = parseInt(batchCount.value) || 1;
+            const userSeedRaw = parseInt(seed.value);
+            const userSeed = Number.isNaN(userSeedRaw) ? -1 : userSeedRaw;
             let base = apiUrl.value.trim().replace(/\/$/, '');
             const targetUrl = base.includes('/sdapi/v1/') ? base : `${base}/sdapi/v1/txt2img`;
 
@@ -695,14 +697,23 @@
             placeholder.classList.add('d-none');
             progressTimer = setInterval(updateProgress, 2000);
             
+            let successCount = 0;
+            let failCount = 0;
+            let lastErrorMessage = "";
+
             try {
                 for (let i = 0; i < count; i++) {
+                    // Always vary seed for batched images to avoid duplicates.
+                    const currentSeed = userSeed < 0
+                        ? Math.floor(Math.random() * 2147483647)
+                        : userSeed + i;
+
                     const payload = {
                         prompt: promptVal, negative_prompt: negPrompt.value,
                         steps: parseInt(steps.value), cfg_scale: parseFloat(cfg.value),
                         width: parseInt(width.value), height: parseInt(height.value),
                         sampler_name: sampler.value, batch_size: 1,
-                        seed: parseInt(seed.value),
+                        seed: currentSeed,
                         enable_hr: enableHires.checked,
                         hr_scale: parseFloat(hrScale.value),
                         denoising_strength: parseFloat(hrDenoise.value)
@@ -718,44 +729,65 @@
                     let response = null;
                     let lastStatus = null;
 
-                    for (let attemptIdx = 0; attemptIdx < proxyAttempts.length; attemptIdx++) {
-                        const attempt = proxyAttempts[attemptIdx];
-                        const attemptPayload = { ...payload };
-                        attemptPayload.steps = attempt.steps;
-                        attemptPayload.enable_hr = attempt.hires;
+                    try {
+                        for (let attemptIdx = 0; attemptIdx < proxyAttempts.length; attemptIdx++) {
+                            const attempt = proxyAttempts[attemptIdx];
+                            const attemptPayload = { ...payload };
+                            attemptPayload.steps = attempt.steps;
+                            attemptPayload.enable_hr = attempt.hires;
 
-                        if (activeProxy) {
-                            // Reduce returned payload size through JPEG + lower quality on retries.
-                            attemptPayload.override_settings = {
-                                samples_format: "jpeg",
-                                jpeg_quality: attempt.jpeg_quality
-                            };
+                            if (activeProxy) {
+                                // Reduce returned payload size through JPEG + lower quality on retries.
+                                attemptPayload.override_settings = {
+                                    samples_format: "jpeg",
+                                    jpeg_quality: attempt.jpeg_quality
+                                };
+                            }
+
+                            const finalUrl = activeProxy ? `${activeProxy}${encodeURIComponent(targetUrl)}` : targetUrl;
+                            response = await fetch(finalUrl, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(attemptPayload)
+                            });
+
+                            if (response.ok) break;
+                            lastStatus = response.status;
+                            if (!activeProxy || (response.status !== 413 && response.status !== 504)) break;
                         }
 
-                        const finalUrl = activeProxy ? `${activeProxy}${encodeURIComponent(targetUrl)}` : targetUrl;
-                        response = await fetch(finalUrl, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(attemptPayload)
-                        });
-
-                        if (response.ok) break;
-                        lastStatus = response.status;
-                        if (!activeProxy || (response.status !== 413 && response.status !== 504)) break;
-                    }
-
-                    if (!response || !response.ok) {
-                        if (lastStatus === 504) {
-                            alert("TIMEOUT (504): Proxy timed out. For high-quality jobs, enable Direct Mode with --cors-allow-origins *.");
-                        } else if (lastStatus === 413) {
-                            alert("PAYLOAD TOO LARGE (413): Proxy rejected image payload. App retried with smaller proxy-safe settings but server response is still too large. Direct Mode is required for full-quality output.");
+                        if (!response || !response.ok) {
+                            if (lastStatus === 504) {
+                                lastErrorMessage = "TIMEOUT (504): Proxy timed out. For high-quality jobs, enable Direct Mode with --cors-allow-origins *.";
+                            } else if (lastStatus === 413) {
+                                lastErrorMessage = "PAYLOAD TOO LARGE (413): Proxy rejected image payload. App retried with smaller proxy-safe settings but server response is still too large. Direct Mode is required for full-quality output.";
+                            } else {
+                                lastErrorMessage = `HTTP error ${lastStatus || (response && response.status)}`;
+                            }
+                            throw new Error(lastErrorMessage);
                         }
-                        throw new Error(`HTTP error ${lastStatus || (response && response.status)}`);
+                        
+                        const resultData = await response.json();
+                        if (resultData && resultData.images && resultData.images.length > 0) {
+                            displayImage(resultData.images[0], promptVal);
+                            successCount++;
+                        } else {
+                            failCount++;
+                        }
+                    } catch (imgErr) {
+                        // Continue batch even if one image fails.
+                        failCount++;
+                        console.error("Batch item failed:", imgErr);
+                        if (!lastErrorMessage) lastErrorMessage = imgErr.message || "Unknown batch error";
+                        continue;
                     }
-                    
-                    const resultData = await response.json();
-                    if (resultData && resultData.images && resultData.images.length > 0) {
-                        displayImage(resultData.images[0], promptVal);
+                }
+
+                if (failCount > 0) {
+                    if (successCount > 0) {
+                        alert(`Batch completed with partial success: ${successCount}/${count} generated. Last error: ${lastErrorMessage}`);
+                    } else {
+                        alert(`Batch failed: ${lastErrorMessage}`);
                     }
                 }
             } catch (error) {
