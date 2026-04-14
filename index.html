@@ -1027,11 +1027,20 @@
                     const finalUrl = activeProxy ? `${activeProxy}${encodeURIComponent(targetUrl)}` : targetUrl;
 
                     try {
+                        // Use AbortController for a long timeout on Direct Mode
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => {
+                            if (!activeProxy) controller.abort(); // Only timeout for direct if it's REALLY long
+                        }, 120000); // 2 minutes for direct
+
                         const response = await fetch(finalUrl, { 
                             method: 'POST', 
                             headers: { 'Content-Type': 'application/json' }, 
-                            body: JSON.stringify(payload)
+                            body: JSON.stringify(payload),
+                            signal: controller.signal
                         });
+
+                        clearTimeout(timeoutId);
 
                         if (!response.ok) {
                             if (response.status === 504) {
@@ -1097,8 +1106,8 @@
                     } catch(e) { history = []; }
                     
                     history.unshift(item);
-                    // More aggressive limit for high-quality images
-                    const historyLimit = 6; 
+                    // Extremely aggressive limit to prevent QuotaExceededError
+                    const historyLimit = 3; 
                     if (history.length > historyLimit) history = history.slice(0, historyLimit);
                     
                     let success = false;
@@ -1107,19 +1116,16 @@
                             localStorage.setItem('imgHistory', JSON.stringify(history));
                             success = true;
                         } catch (e) {
-                            const isQuota = e.name === 'QuotaExceededError' || 
-                                            e.name === 'NS_ERROR_DOM_QUOTA_REACHED' || 
-                                            e.code === 22 || e.code === 1014;
-                            if (isQuota) {
-                                history.pop(); 
-                                console.warn("Storage full, dropping oldest image...");
-                            } else {
-                                throw e;
+                            history.pop(); 
+                            if (history.length === 0) {
+                                localStorage.removeItem('imgHistory');
+                                break;
                             }
                         }
                     }
                 } catch (err) {
                     console.error("History save failed:", err);
+                    localStorage.removeItem('imgHistory'); // Nuclear option if corrupted
                 }
             }
         }
