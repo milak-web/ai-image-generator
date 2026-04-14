@@ -541,13 +541,16 @@
                 </div>
                 <div class="input-group">
                     <input type="text" id="apiUrl" class="form-control" placeholder="Paste your SD API or Gradio link here...">
-                    <button class="btn btn-outline-info" onclick="checkConnection()"><i class="fas fa-sync-alt"></i></button>
+                    <button class="btn btn-outline-info" onclick="checkConnection()" title="Test Connection"><i class="fas fa-sync-alt"></i></button>
+                    <button class="btn btn-outline-warning" data-bs-toggle="modal" data-bs-target="#connectionGuideModal" title="Setup Guide"><i class="fas fa-question-circle"></i></button>
                 </div>
                 <!-- HELP TEXT FOR 504/CORS -->
                 <div id="connHelp" class="mt-2 small text-muted d-none" style="font-size: 0.7rem; line-height: 1.2;">
                     <div class="p-2 border border-warning rounded bg-dark-subtle">
-                        <i class="fas fa-exclamation-triangle me-1 text-warning"></i> 
-                        <b>Connection Troubleshooting:</b><br>
+                        <div class="d-flex justify-content-between align-items-start mb-1">
+                            <b class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i> Connection Troubleshooting:</b>
+                            <button class="btn btn-sm btn-outline-info py-0 px-1" style="font-size: 0.6rem;" data-bs-toggle="modal" data-bs-target="#connectionGuideModal">How to Fix</button>
+                        </div>
                         - <b>504 Timeout?</b> The proxy cut the connection. Reduce Steps/Resolution or use <b>Direct Mode</b>.<br>
                         - <b>CORS Blocked?</b> Add <code>--cors-allow-origins *</code> to your SD launch command.<br>
                         - <b>Direct Mode</b> is the fastest and never times out!
@@ -648,6 +651,50 @@
             </div>
 
             <!-- ADVANCED (REMOVED DUPLICATES, SETTINGS DRAWER ONLY) -->
+        </div>
+    </div>
+
+    <!-- CONNECTION GUIDE MODAL -->
+    <div class="modal fade" id="connectionGuideModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content bg-dark border-secondary text-light">
+                <div class="modal-header border-secondary">
+                    <h5 class="modal-title text-warning"><i class="fas fa-plug me-2"></i> Connection Setup Guide</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-4">
+                        <h6 class="text-info"><i class="fas fa-bolt me-2"></i> Best Method: Direct Mode (Fastest)</h6>
+                        <p class="small text-muted">Direct Mode bypasses all proxies, meaning <b>zero timeouts</b> and <b>instant results</b>. To enable it:</p>
+                        <ol class="small">
+                            <li>Find your Stable Diffusion startup file (usually <code>webui-user.bat</code> on Windows).</li>
+                            <li>Right-click and edit it.</li>
+                            <li>Look for <code>set COMMANDLINE_ARGS=</code> and add <code>--cors-allow-origins *</code> to it.
+                                <br><code class="bg-black p-1 rounded text-success mt-1 d-inline-block">set COMMANDLINE_ARGS=--api --cors-allow-origins *</code>
+                            </li>
+                            <li>Restart Stable Diffusion.</li>
+                            <li>In this app, turn <b>ON</b> the "Direct Mode" switch next to the connection status.</li>
+                        </ol>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <h6 class="text-warning"><i class="fas fa-shield-alt me-2"></i> Proxy Mode (Default)</h6>
+                        <p class="small text-muted">Proxy Mode is easier to set up but has strict limits:</p>
+                        <ul class="small">
+                            <li><b>504 Gateway Timeout:</b> Public proxies (like <code>corsproxy.io</code>) cut the connection after 20-30 seconds.</li>
+                            <li><b>Image still generates:</b> Your server IS likely generating the image, but the proxy stopped waiting for it.</li>
+                            <li><b>How to fix:</b> Reduce "Steps" to 20 or lower, or use a lower resolution (512x512). If it still times out, you <b>must</b> use Direct Mode.</li>
+                        </ul>
+                    </div>
+
+                    <div class="p-2 border border-info rounded bg-info bg-opacity-10">
+                        <p class="small mb-0"><b>Tip:</b> If you're using Gradio (the <code>.live</code> link), Direct Mode works perfectly as long as you have the <code>--cors-allow-origins *</code> flag set!</p>
+                    </div>
+                </div>
+                <div class="modal-footer border-secondary">
+                    <button class="btn btn-primary w-100" data-bs-dismiss="modal">Got it!</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -888,6 +935,17 @@
             if (useDirect.checked) {
                 connBadge.textContent = "CORS BLOCKED";
                 connBadge.className = "badge-status bg-warning";
+                // Show specific CORS help
+                const helpBox = connHelp.querySelector('.p-2');
+                helpBox.classList.remove('border-warning');
+                helpBox.classList.add('border-danger');
+                helpBox.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-start mb-1">
+                        <b class="text-danger"><i class="fas fa-shield-alt me-1"></i> CORS POLICY ERROR:</b>
+                        <button class="btn btn-sm btn-outline-info py-0 px-1" style="font-size: 0.6rem;" data-bs-toggle="modal" data-bs-target="#connectionGuideModal">Setup Guide</button>
+                    </div>
+                    Direct Mode is blocked! Add <code>--cors-allow-origins *</code> to your SD startup command.
+                `;
             } else {
                 connBadge.textContent = "OFFLINE";
                 connBadge.className = "badge-status bg-danger";
@@ -939,7 +997,11 @@
                         if (!response.ok) {
                             if (response.status === 504) {
                                 connHelp.classList.remove('d-none');
-                                alert("GATEWAY TIMEOUT (504)\n\nThe proxy cut the connection because the server took too long.\n\nCHECK YOUR SERVER: The image is likely already generated there!\n\nTO FIX THIS: Turn on 'Direct Mode' or reduce Steps.");
+                                const useDirectConfirm = confirm("GATEWAY TIMEOUT (504)\n\nThe proxy cut the connection because the image took too long to generate (over 30s).\n\nNOTE: Your server is likely STILL GENERATING the image! Check your server console.\n\nWOULD YOU LIKE TO OPEN THE SETUP GUIDE to enable 'Direct Mode' and avoid this forever?");
+                                if (useDirectConfirm) {
+                                    const modal = new bootstrap.Modal(get('connectionGuideModal'));
+                                    modal.show();
+                                }
                                 throw new Error("504 Gateway Timeout via Proxy");
                             }
                             throw new Error(`HTTP error! status: ${response.status}`);
