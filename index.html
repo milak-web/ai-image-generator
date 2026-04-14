@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -613,6 +613,12 @@
             if (globalContext) globalContext.value = localStorage.getItem('globalContext') || '';
             loadHistory();
             checkConnection();
+
+            // Restore sensor state
+            if (localStorage.getItem('autoWatch') === 'true') {
+                autoWatch.checked = true;
+                setTimeout(toggleWatch, 500);
+            }
         };
 
         function toggleDirect() {
@@ -877,40 +883,138 @@
             Object.entries(customDict).forEach(([t, k]) => {
                 const item = document.createElement('div');
                 item.className = 'dict-item';
-                item.innerHTML = `<span class="small text-info">${t}</span> <button class="btn btn-sm text-danger" onclick="delete customDict['${t}']; localStorage.setItem('rpDictionary', JSON.stringify(customDict)); renderDict();">├ù</button>`;
+                // URL encode the trigger for safe function calls
+                const encodedT = encodeURIComponent(t);
+                item.innerHTML = `
+                    <div class="d-flex flex-column flex-grow-1 overflow-hidden me-2">
+                        <span class="small text-info text-truncate">${t}</span>
+                        <span class="small text-muted text-truncate">${k}</span>
+                    </div>
+                    <div class="d-flex gap-1">
+                        <button class="btn btn-sm btn-link text-info p-0" onclick="editTrigger('${encodedT}')"><i class="fas fa-edit"></i></button>
+                        <button class="btn btn-sm btn-link text-danger p-0" onclick="removeTrigger('${encodedT}')"><i class="fas fa-times"></i></button>
+                    </div>
+                `;
                 dictList.appendChild(item);
             });
         }
 
-        function toggleWatch() {
-            if (autoWatch.checked) {
-                watchInterval = setInterval(async () => {
-                    try {
-                        const text = await navigator.clipboard.readText();
-                        if (text && text !== lastClipboardText) {
-                            lastClipboardText = text;
-                            rpInput.value = text;
-                            processRpSync();
-                        }
-                    } catch (e) {}
-                }, 1000);
-            } else clearInterval(watchInterval);
+        function editTrigger(t) {
+            const decodedT = decodeURIComponent(t);
+            const k = customDict[decodedT];
+            triggerIn.value = decodedT;
+            keywordIn.value = k;
+            delete customDict[decodedT];
+            localStorage.setItem('rpDictionary', JSON.stringify(customDict));
+            renderDict();
+            triggerIn.focus();
         }
 
-        function processRpSync() {
+        function removeTrigger(t) {
+            const decodedT = decodeURIComponent(t);
+            if (confirm(`Delete rule for: ${decodedT}?`)) {
+                delete customDict[decodedT];
+                localStorage.setItem('rpDictionary', JSON.stringify(customDict));
+                renderDict();
+            }
+        }
+
+        function toggleWatch() {
+            if (autoWatch.checked) {
+                localStorage.setItem('autoWatch', 'true');
+                console.log("Automation Sensor: ACTIVATED");
+                
+                // Immediate first check
+                syncFromClipboard();
+                
+                if (watchInterval) clearInterval(watchInterval);
+                watchInterval = setInterval(syncFromClipboard, 1000);
+            } else {
+                localStorage.setItem('autoWatch', 'false');
+                clearInterval(watchInterval);
+                console.log("Automation Sensor: OFFLINE");
+            }
+        }
+
+        async function syncFromClipboard() {
+            try {
+                const text = await navigator.clipboard.readText();
+                if (text && text !== lastClipboardText && text.trim().length > 3) {
+                    console.log("SENSOR HIT! Processing:", text.substring(0, 40) + "...");
+                    lastClipboardText = text;
+                    rpInput.value = text;
+                    processRpSync();
+                    
+                    // Visual feedback
+                    rpDrawer.style.borderColor = "#0dcaf0";
+                    setTimeout(() => {
+                        rpDrawer.style.borderColor = "rgba(168, 85, 247, 0.5)";
+                    }, 1000);
+                }
+            } catch (e) {
+                // Silent fail for clipboard access
+            }
+        }
+
+        function processRpSync(customResult = null) {
             const text = rpInput.value.toLowerCase();
+            if (!text && !customResult) {
+                keywordPills.innerHTML = '<span class="small text-muted">Ready...</span>';
+                return;
+            }
+
             let detected = [];
-            Object.entries(customDict).forEach(([t, k]) => { if (text.includes(t)) detected.push(k); });
+            if (customResult) {
+                detected = customResult;
+            } else {
+                Object.entries(customDict).forEach(([t, k]) => {
+                    if (text.includes(t)) detected.push(k);
+                });
+            }
+            
             detected = [...new Set(detected)];
             keywordPills.innerHTML = '';
+            
             detected.forEach(k => {
                 const span = document.createElement('span');
                 span.className = 'keyword-pill';
-                span.textContent = k;
+                span.style.cursor = 'pointer';
+                span.title = 'Click to edit, X to remove';
+                span.innerHTML = `<i class="fas fa-star me-1"></i> ${k} <i class="fas fa-times ms-1 opacity-50 remove-pill" style="font-size:0.6rem;"></i>`;
+                
+                span.onclick = (e) => {
+                    if (e.target.classList.contains('remove-pill')) {
+                        const newDetected = detected.filter(w => w !== k);
+                        processRpSync(newDetected);
+                    } else {
+                        const newWord = prompt("Edit keyword:", k);
+                        if (newWord !== null && newWord.trim() !== "") {
+                            const newDetected = detected.map(w => w === k ? newWord.trim() : w);
+                            processRpSync(newDetected);
+                        }
+                    }
+                };
                 keywordPills.appendChild(span);
             });
+
+            // Add manual pill
+            const addPill = document.createElement('span');
+            addPill.className = 'keyword-pill';
+            addPill.style.background = 'rgba(255, 255, 255, 0.1)';
+            addPill.style.borderStyle = 'dashed';
+            addPill.style.cursor = 'pointer';
+            addPill.innerHTML = `<i class="fas fa-plus me-1"></i> Add`;
+            addPill.onclick = () => {
+                const newWord = prompt("Add manual keyword:");
+                if (newWord !== null && newWord.trim() !== "") {
+                    processRpSync([...detected, newWord.trim()]);
+                }
+            };
+            keywordPills.appendChild(addPill);
+
             const fixed = localStorage.getItem('globalContext') || "";
             prompt.value = (fixed ? fixed + ", " : "") + detected.join(', ');
+            
             if (detected.length > 0) generateImage();
         }
 
