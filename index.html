@@ -855,19 +855,12 @@
               useDirect = get('useDirect'), connHelp = get('connHelp');
 
         let isGenerating = false;
-        let activeProxy = ""; 
+        let activeProxy = "https://corsproxy.io/?"; 
         let isRpMode = false;
         let lastClipboardText = "";
         let watchInterval = null;
         let customDict = JSON.parse(localStorage.getItem('rpDictionary') || '{}');
         let promptHistoryModal = null;
-
-        const PROXIES = [
-            "https://corsproxy.io/?",
-            "https://api.allorigins.win/raw?url=",
-            "https://thingproxy.freeboard.io/fetch/"
-        ];
-        let currentProxyIndex = 0;
 
         // Initialization
         window.onload = () => {
@@ -909,25 +902,21 @@
                     return;
                 }
             } catch (e) {
-                console.warn("Direct connection failed, checking proxies...");
+                console.warn("Direct connection failed, checking proxy...");
             }
 
-            // 2. Try Proxies in order
+            // 2. Try Default Proxy
             if (!useDirect.checked) {
-                for (let i = 0; i < PROXIES.length; i++) {
-                    const proxy = PROXIES[i];
-                    try {
-                        const res = await fetch(proxy + encodeURIComponent(testUrl));
-                        if (res.ok) {
-                            activeProxy = proxy;
-                            currentProxyIndex = i;
-                            connBadge.textContent = `ONLINE (PROXY ${i+1})`;
-                            connBadge.className = "badge-status bg-success";
-                            return;
-                        }
-                    } catch (e) {
-                        console.warn(`Proxy ${i+1} failed...`);
+                try {
+                    const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(testUrl)}`);
+                    if (res.ok) {
+                        activeProxy = "https://corsproxy.io/?";
+                        connBadge.textContent = `ONLINE (PROXY)`;
+                        connBadge.className = "badge-status bg-success";
+                        return;
                     }
+                } catch (e) {
+                    console.warn(`Proxy failed...`);
                 }
             }
 
@@ -1011,7 +1000,7 @@
                             displayImage(resultData.images[0], promptVal);
                         }
                     } catch (fetchErr) {
-                        // If proxy fails, try to rotate or suggest Direct
+                        // If proxy fails, suggest Direct Mode
                         if (activeProxy && !useDirect.checked) {
                             console.error("Proxy failed during generation, suggesting Direct Mode");
                             connHelp.classList.remove('d-none');
