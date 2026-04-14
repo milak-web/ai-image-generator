@@ -961,10 +961,28 @@
             };
             historyStrip.prepend(img);
             if (save) {
-                let history = JSON.parse(localStorage.getItem('imgHistory') || '[]');
-                history.unshift(item);
-                if (history.length > 10) history.pop();
-                localStorage.setItem('imgHistory', JSON.stringify(history));
+                try {
+                    let history = JSON.parse(localStorage.getItem('imgHistory') || '[]');
+                    history.unshift(item);
+                    if (history.length > 10) history.pop();
+                    
+                    let success = false;
+                    while (!success && history.length > 0) {
+                        try {
+                            localStorage.setItem('imgHistory', JSON.stringify(history));
+                            success = true;
+                        } catch (e) {
+                            if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
+                                history.pop(); // Remove oldest if full
+                                console.warn("Storage full, dropping oldest image...");
+                            } else {
+                                throw e;
+                            }
+                        }
+                    }
+                } catch (err) {
+                    console.error("History save failed:", err);
+                }
             }
         }
 
