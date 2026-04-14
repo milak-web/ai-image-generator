@@ -545,8 +545,13 @@
                 </div>
                 <!-- HELP TEXT FOR 504/CORS -->
                 <div id="connHelp" class="mt-2 small text-muted d-none" style="font-size: 0.7rem; line-height: 1.2;">
-                    <i class="fas fa-info-circle me-1 text-info"></i> 
-                    Getting timeouts? Add <code>--cors-allow-origins *</code> to your SD launch command and use <b>Direct Mode</b>.
+                    <div class="p-2 border border-warning rounded bg-dark-subtle">
+                        <i class="fas fa-exclamation-triangle me-1 text-warning"></i> 
+                        <b>Connection Troubleshooting:</b><br>
+                        - <b>504 Timeout?</b> The proxy cut the connection. Reduce Steps/Resolution or use <b>Direct Mode</b>.<br>
+                        - <b>CORS Blocked?</b> Add <code>--cors-allow-origins *</code> to your SD launch command.<br>
+                        - <b>Direct Mode</b> is the fastest and never times out!
+                    </div>
                 </div>
             </div>
 
@@ -810,6 +815,13 @@
         let customDict = JSON.parse(localStorage.getItem('rpDictionary') || '{}');
         let promptHistoryModal = null;
 
+        const PROXIES = [
+            "https://corsproxy.io/?",
+            "https://api.allorigins.win/raw?url=",
+            "https://thingproxy.freeboard.io/fetch/"
+        ];
+        let currentProxyIndex = 0;
+
         // Initialization
         window.onload = () => {
             if (localStorage.getItem('useDirect') === 'true') useDirect.checked = true;
@@ -835,52 +847,52 @@
             localStorage.setItem('apiUrl', base);
             
             const testUrl = `${base}/sdapi/v1/options`;
-            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(testUrl)}`;
             
             connBadge.textContent = "LINKING...";
             connBadge.className = "badge-status bg-info";
             connHelp.classList.add('d-none');
 
-            if (useDirect.checked) {
-                try {
-                    const res = await fetch(testUrl, { method: 'GET', mode: 'cors' });
-                    if (res.ok) {
-                        activeProxy = "";
-                        connBadge.textContent = "ONLINE (DIRECT)";
-                        connBadge.className = "badge-status bg-success";
-                        return;
-                    }
-                } catch (e) {
-                    connBadge.textContent = "CORS BLOCKED";
-                    connBadge.className = "badge-status bg-warning";
-                    connHelp.classList.remove('d-none');
+            // 1. Try Direct first
+            try {
+                const res = await fetch(testUrl, { method: 'GET', mode: 'cors' });
+                if (res.ok) {
+                    activeProxy = "";
+                    connBadge.textContent = "ONLINE (DIRECT)";
+                    connBadge.className = "badge-status bg-success";
+                    return;
                 }
-            } else {
-                try {
-                    const res = await fetch(proxyUrl);
-                    if (res.ok) {
-                        activeProxy = "https://corsproxy.io/?";
-                        connBadge.textContent = "ONLINE (PROXY)";
-                        connBadge.className = "badge-status bg-success";
-                        return;
+            } catch (e) {
+                console.warn("Direct connection failed, checking proxies...");
+            }
+
+            // 2. Try Proxies in order
+            if (!useDirect.checked) {
+                for (let i = 0; i < PROXIES.length; i++) {
+                    const proxy = PROXIES[i];
+                    try {
+                        const res = await fetch(proxy + encodeURIComponent(testUrl));
+                        if (res.ok) {
+                            activeProxy = proxy;
+                            currentProxyIndex = i;
+                            connBadge.textContent = `ONLINE (PROXY ${i+1})`;
+                            connBadge.className = "badge-status bg-success";
+                            return;
+                        }
+                    } catch (e) {
+                        console.warn(`Proxy ${i+1} failed...`);
                     }
-                } catch (e) {
-                    console.warn("Proxy failed, trying direct...");
-                }
-                
-                try {
-                    const res = await fetch(testUrl);
-                    if (res.ok) {
-                        activeProxy = "";
-                        connBadge.textContent = "ONLINE (DIRECT)";
-                        connBadge.className = "badge-status bg-success";
-                    } else throw Error("All paths failed");
-                } catch (e) {
-                    connBadge.textContent = "OFFLINE";
-                    connBadge.className = "badge-status bg-danger";
-                    connHelp.classList.remove('d-none');
                 }
             }
+
+            // 3. Error state
+            if (useDirect.checked) {
+                connBadge.textContent = "CORS BLOCKED";
+                connBadge.className = "badge-status bg-warning";
+            } else {
+                connBadge.textContent = "OFFLINE";
+                connBadge.className = "badge-status bg-danger";
+            }
+            connHelp.classList.remove('d-none');
         }
 
         async function generateImage() {
@@ -917,22 +929,32 @@
 
                     const finalUrl = activeProxy ? `${activeProxy}${encodeURIComponent(targetUrl)}` : targetUrl;
 
-                    const response = await fetch(finalUrl, { 
-                        method: 'POST', 
-                        headers: { 'Content-Type': 'application/json' }, 
-                        body: JSON.stringify(payload)
-                    });
+                    try {
+                        const response = await fetch(finalUrl, { 
+                            method: 'POST', 
+                            headers: { 'Content-Type': 'application/json' }, 
+                            body: JSON.stringify(payload)
+                        });
 
-                    if (!response.ok) {
-                        if (response.status === 504) {
-                            alert("GATEWAY TIMEOUT (504)\n\nPublic proxies (like corsproxy.io) have a strict 20-30s time limit. Your image is still generating on the server, but the connection was cut.\n\nFIX: Use 'Direct Mode' (requires --cors-allow-origins * in SD) or reduce resolution/steps.");
-                            throw new Error("504 Gateway Timeout via Proxy");
+                        if (!response.ok) {
+                            if (response.status === 504) {
+                                connHelp.classList.remove('d-none');
+                                alert("GATEWAY TIMEOUT (504)\n\nThe proxy cut the connection because the server took too long.\n\nCHECK YOUR SERVER: The image is likely already generated there!\n\nTO FIX THIS: Turn on 'Direct Mode' or reduce Steps.");
+                                throw new Error("504 Gateway Timeout via Proxy");
+                            }
+                            throw new Error(`HTTP error! status: ${response.status}`);
                         }
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    const resultData = await response.json();
-                    if (resultData && resultData.images && resultData.images.length > 0) {
-                        displayImage(resultData.images[0], promptVal);
+                        const resultData = await response.json();
+                        if (resultData && resultData.images && resultData.images.length > 0) {
+                            displayImage(resultData.images[0], promptVal);
+                        }
+                    } catch (fetchErr) {
+                        // If proxy fails, try to rotate or suggest Direct
+                        if (activeProxy && !useDirect.checked) {
+                            console.error("Proxy failed during generation, suggesting Direct Mode");
+                            connHelp.classList.remove('d-none');
+                        }
+                        throw fetchErr;
                     }
                 }
             } catch (error) {
