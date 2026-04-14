@@ -1,590 +1,903 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PixelForge Pro - ULTRA RESILIENT</title>
+    <title>PixelForge Pro</title>
     <link rel="icon" type="image/svg+xml" href="logo.svg">
+    <!-- PWA Support -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#6366F1">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="description" content="PixelForge Pro: A high-performance, standalone web interface for Stable Diffusion.">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="logo.svg">
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         :root {
-            --bg-dark: #020617;
-            --card-bg: #0f172a;
-            --accent: #6366f1;
-            --danger: #ef4444;
-            --success: #22c55e;
-            --border: #1e293b;
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --accent-color: #3b82f6;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --panel-height: 100px;
         }
 
         body {
-            background-color: var(--bg-dark);
-            color: #f8fafc;
-            font-family: 'Inter', system-ui, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Inter', -apple-system, sans-serif;
+            padding-bottom: var(--panel-height);
             min-height: 100vh;
-            padding-bottom: 120px;
+            overflow-x: hidden;
         }
 
-        .app-container { max-width: 600px; margin: 0 auto; padding: 15px; }
-
-        /* STATUS BADGES */
-        .status-pill {
-            font-size: 0.65rem;
-            font-weight: 800;
-            padding: 4px 12px;
-            border-radius: 20px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        .status-online { background: rgba(34, 197, 94, 0.1); color: var(--success); border: 1px solid var(--success); }
-        .status-error { background: rgba(239, 68, 68, 0.1); color: var(--danger); border: 1px solid var(--danger); }
-        .status-testing { background: rgba(99, 102, 241, 0.1); color: var(--accent); border: 1px solid var(--accent); }
-
-        /* HEADER */
-        .glass-header {
-            background: rgba(15, 23, 42, 0.8);
-            backdrop-filter: blur(12px);
-            border: 1px solid var(--border);
-            border-radius: 20px;
+        .container {
+            max-width: 600px;
             padding: 15px;
-            margin-bottom: 20px;
         }
 
-        /* IMAGE AREA */
-        .viewport {
+        .header-section {
+            background-color: var(--card-bg);
+            border-radius: 16px;
+            padding: 12px;
+            margin-bottom: 15px;
+            border: 1px solid var(--border-color);
+        }
+
+        .form-control, .form-select {
+            background-color: #0f172a;
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 0.6rem;
+            border-radius: 10px;
+            font-size: 0.9rem;
+        }
+
+        .image-output-container {
             width: 100%;
-            aspect-ratio: 1/1;
-            background: #000;
-            border-radius: 24px;
-            border: 1px solid var(--border);
-            position: relative;
-            overflow: hidden;
+            min-height: 350px;
+            background-color: #000;
+            border-radius: 16px;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            position: relative;
+            margin-bottom: 20px;
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
-        .viewport img { width: 100%; height: 100%; object-fit: contain; }
+
+        .image-output-container img {
+            max-width: 100%;
+            max-height: 80vh;
+            object-fit: contain;
+        }
+
+        .prompt-section {
+            background-color: var(--card-bg);
+            border-radius: 16px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border: 1px solid var(--border-color);
+        }
+
+        .fixed-bottom-panel {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(20px);
+            border-top: 1px solid var(--border-color);
+            padding: 20px 15px;
+            z-index: 1050;
+            box-shadow: 0 -10px 30px rgba(0,0,0,0.5);
+        }
+
+        .control-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            height: 55px;
+        }
+
+        .batch-input-group {
+            width: 80px;
+            height: 100%;
+        }
         
-        .loading-shimmer {
+        .batch-input-group .input-group {
+            height: 100%;
+        }
+
+        .batch-input-group .input-group-text {
+            background-color: var(--card-bg) !important;
+            border-color: var(--border-color) !important;
+            color: var(--text-muted);
+            border-radius: 12px 0 0 12px;
+        }
+
+        .batch-input-group input {
+            height: 100%;
+            background-color: #0f172a !important;
+            border-color: var(--border-color) !important;
+            color: white !important;
+            border-radius: 0 12px 12px 0;
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+
+        .settings-drawer {
             position: absolute;
-            inset: 0;
-            background: linear-gradient(90deg, #0f172a 25%, #1e293b 50%, #0f172a 75%);
-            background-size: 200% 100%;
-            animation: shimmer 2s infinite;
+            bottom: 100px;
+            right: 15px;
+            width: 300px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(20px) scale(0.95);
+            transform-origin: bottom right;
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            z-index: 1100;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
+        .settings-drawer.active {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0) scale(1);
+        }
+
+        .res-drawer {
+            position: absolute;
+            bottom: 100px;
+            left: 15px;
+            width: 200px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(20px) scale(0.95);
+            transform-origin: bottom left;
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            z-index: 1100;
+        }
+
+        .res-drawer.active {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0) scale(1);
+        }
+
+        .btn-preset {
+            width: 100%;
+            padding: 12px;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            background: #0f172a;
+            text-align: center;
+            transition: all 0.2s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .btn-preset i { opacity: 0; }
+        .btn-preset.active i { opacity: 1; }
+
+        .btn-preset.active {
+            background: var(--accent-color);
+            border-color: var(--accent-color);
+            color: white;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+
+        .btn-res-toggle {
+            width: 55px;
+            height: 55px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            transition: all 0.2s;
+        }
+        
+        .btn-res-toggle:active { transform: scale(0.95); }
+
+        .btn-generate {
+            flex: 1;
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            border: none;
+            height: 100%;
+            font-weight: 800;
+            border-radius: 14px;
+            color: white;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 1.2rem;
+            box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4);
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .btn-generate:active { transform: scale(0.98); }
+        .btn-generate:disabled { filter: grayscale(1); opacity: 0.7; }
+
+        .loading-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(15, 23, 42, 0.8);
             display: none;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             z-index: 10;
         }
-        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
-        /* PROGRESS */
-        .progress-container { width: 80%; }
-        .progress-bar-custom {
-            height: 6px;
-            background: rgba(255,255,255,0.1);
-            border-radius: 10px;
-            overflow: hidden;
-        }
-        .progress-fill {
-            height: 100%;
-            background: var(--accent);
-            width: 0%;
-            transition: width 0.3s ease;
-            box-shadow: 0 0 15px var(--accent);
-        }
+        .badge-status { font-size: 0.7rem; padding: 4px 10px; border-radius: 20px; }
 
-        /* CONTROLS */
-        .control-panel {
+        .rp-sync-drawer {
             position: fixed;
-            bottom: 0; left: 0; right: 0;
-            background: rgba(2, 6, 23, 0.9);
-            backdrop-filter: blur(20px);
-            border-top: 1px solid var(--border);
-            padding: 20px;
-            z-index: 1000;
-        }
-        .btn-gen {
-            background: var(--accent);
-            color: white;
-            border: none;
-            border-radius: 16px;
-            font-weight: 800;
-            height: 55px;
-            transition: all 0.2s;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-        .btn-gen:active { transform: scale(0.96); }
-        .btn-gen:disabled { opacity: 0.5; filter: grayscale(1); }
-
-        /* INPUTS */
-        .input-group-custom {
-            background: var(--card-bg);
-            border: 1px solid var(--border);
-            border-radius: 14px;
-            padding: 10px;
-            margin-bottom: 15px;
-        }
-        .input-group-custom label { font-size: 0.7rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 5px; display: block; }
-        .input-group-custom textarea, .input-group-custom input {
-            background: transparent;
-            border: none;
-            color: white;
-            width: 100%;
-            outline: none;
-            font-size: 0.95rem;
-        }
-
-        /* TROUBLESHOOTER */
-        .doctor-box {
-            background: rgba(239, 68, 68, 0.1);
-            border: 1px solid rgba(239, 68, 68, 0.3);
-            border-radius: 12px;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%) translateY(150%);
+            width: 95%;
+            max-width: 600px;
+            background: rgba(15, 23, 42, 0.98);
+            backdrop-filter: blur(25px);
+            border: 1px solid rgba(168, 85, 247, 0.5);
+            border-radius: 20px;
             padding: 12px;
+            z-index: 2500;
+            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            box-shadow: 0 -10px 40px rgba(0,0,0,0.7);
+        }
+
+        .rp-sync-drawer.active {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .keyword-pill {
+            display: inline-block;
+            background: rgba(168, 85, 247, 0.1);
+            color: #d8b4fe;
+            border: 1px solid rgba(168, 85, 247, 0.3);
+            padding: 2px 10px;
+            border-radius: 10px;
+            font-size: 0.75rem;
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
+
+        .dict-panel {
+            background: rgba(0,0,0,0.3);
+            border-radius: 12px;
+            padding: 10px;
             margin-top: 10px;
             display: none;
+            max-height: 200px;
+            overflow-y: auto;
         }
 
-        .history-strip {
+        .dict-item {
             display: flex;
-            gap: 10px;
-            overflow-x: auto;
-            padding-bottom: 10px;
-            scrollbar-width: none;
-        }
-        .history-item {
-            width: 60px; height: 60px;
-            border-radius: 10px;
-            border: 1px solid var(--border);
-            flex-shrink: 0;
-            cursor: pointer;
-            object-fit: cover;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255,255,255,0.05);
+            padding: 4px 10px;
+            border-radius: 8px;
+            margin-bottom: 5px;
+            font-size: 0.8rem;
         }
 
-        .drawer {
-            position: fixed;
-            bottom: 100px; left: 15px; right: 15px;
+        .btn-icon-sm {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
             background: var(--card-bg);
-            border: 1px solid var(--border);
-            border-radius: 20px;
-            padding: 20px;
-            transform: translateY(150%);
-            transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-            z-index: 900;
-            box-shadow: 0 -20px 40px rgba(0,0,0,0.5);
+            color: var(--text-main);
+            font-size: 0.8rem;
         }
-        .drawer.active { transform: translateY(0); }
+
+        .history-item {
+            height: 60px;
+            width: 60px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            cursor: pointer;
+            flex-shrink: 0;
+        }
     </style>
 </head>
 <body>
-    <div class="app-container">
-        <!-- HEADER -->
-        <div class="glass-header">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <div class="d-flex align-items-center gap-2">
-                    <img src="logo.svg" style="width: 30px;">
-                    <span class="fw-bold">PIXELFORGE PRO</span>
+    <div class="container" id="appContainer">
+        <!-- HEADER WITH LOGO -->
+        <div class="d-flex align-items-center justify-content-center mb-4 mt-2">
+            <img src="logo.svg" alt="PixelForge Logo" style="width: 45px; height: 45px; margin-right: 12px; filter: drop-shadow(0 0 8px rgba(99, 102, 241, 0.5));">
+            <h2 class="mb-0 fw-bold" style="background: linear-gradient(135deg, #6366F1 0%, #A855F7 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">PixelForge Pro</h2>
+        </div>
+        
+        <!-- MAIN CONTENT WRAPPER -->
+        <div class="main-app-content" id="mainContent">
+            <!-- TOP: URL INPUT & STATUS -->
+            <div class="header-section">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div class="d-flex gap-2 align-items-center">
+                        <span id="connBadge" class="badge-status bg-danger">OFFLINE</span>
+                        <div class="form-check form-switch small mb-0 ms-2">
+                            <input class="form-check-input" type="checkbox" id="useDirect" onchange="toggleDirect()">
+                            <label class="form-check-label text-muted" style="font-size:0.7rem;" for="useDirect">Direct Mode</label>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2 align-items-center">
+                        <button class="btn btn-sm btn-outline-danger py-0" style="font-size: 0.7rem;" onclick="resetApp()">
+                            <i class="fas fa-trash-alt me-1"></i> Reset
+                        </button>
+                        <button id="rpToggleBtn" class="btn btn-sm btn-outline-warning py-0" onclick="toggleImmersiveMode()">
+                            <i class="fas fa-magic me-1"></i> RP Mode
+                        </button>
+                    </div>
                 </div>
-                <div id="connStatus" class="status-pill status-testing">LINKING...</div>
-            </div>
-            
-            <div class="input-group input-group-sm mb-2">
-                <input type="text" id="apiUrl" class="form-control bg-dark border-secondary text-light" placeholder="API / Gradio URL">
-                <button class="btn btn-outline-info" onclick="forceCheck()"><i class="fas fa-sync"></i></button>
-            </div>
-
-            <div class="d-flex justify-content-between align-items-center">
-                <div class="form-check form-switch small">
-                    <input class="form-check-input" type="checkbox" id="useDirect" onchange="toggleMode()">
-                    <label class="form-check-label text-muted" for="useDirect">Direct Mode (No Proxy)</label>
+                <div class="input-group">
+                    <input type="text" id="apiUrl" class="form-control" placeholder="Paste your SD API or Gradio link here...">
+                    <button class="btn btn-outline-info" onclick="checkConnection()"><i class="fas fa-sync-alt"></i></button>
                 </div>
-                <button class="btn btn-sm btn-outline-danger border-0" onclick="resetApp()"><i class="fas fa-trash"></i></button>
-            </div>
-
-            <!-- ERROR DOCTOR -->
-            <div id="doctorBox" class="doctor-box">
-                <div class="d-flex gap-2 align-items-start text-danger small">
-                    <i class="fas fa-heart-pulse mt-1"></i>
-                    <div>
-                        <b id="errorTitle">504 TIMEOUT DETECTED</b><br>
-                        <span id="errorMsg">The proxy killed the gate. Use <b>Direct Mode</b> or reduce resolution.</span>
-                        <button class="btn btn-sm btn-link text-info p-0 d-block mt-1" data-bs-toggle="modal" data-bs-target="#fixModal">HOW TO FIX FOREVER</button>
+                <!-- HELP TEXT FOR 504/CORS -->
+                <div id="connHelp" class="mt-2 small text-muted d-none" style="font-size: 0.7rem; line-height: 1.2;">
+                    <div class="p-2 border border-warning rounded bg-dark-subtle">
+                        <b class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i> Connection Issue:</b><br>
+                        - <b>504 Timeout?</b> Proxy limit reached. Use <b>Direct Mode</b> or reduce resolution.<br>
+                        - <b>CORS Error?</b> Add <code>--cors-allow-origins *</code> to your SD startup.
                     </div>
                 </div>
             </div>
-        </div>
 
-        <!-- VIEWPORT -->
-        <div class="viewport" id="viewport">
-            <div id="placeholder" class="text-center text-muted">
-                <i class="fas fa-sparkles fa-3x mb-3"></i>
-                <p class="small fw-bold">READY TO DREAM</p>
-            </div>
-            
-            <div id="loader" class="loading-shimmer">
-                <div class="fw-bold mb-3">GENERATING...</div>
-                <div class="progress-container">
-                    <div class="progress-bar-custom">
-                        <div id="progressFill" class="progress-fill"></div>
+            <!-- RP IMMERSIVE SYNC DRAWER -->
+            <div id="rpDrawer" class="rp-sync-drawer">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="fas fa-microchip" style="color:#a855f7;"></i>
+                        <span class="small fw-bold text-muted text-uppercase">Automation</span>
                     </div>
-                    <div class="d-flex justify-content-between mt-2 small text-muted">
-                        <span id="progressText">0%</span>
-                        <span id="timerText">0s</span>
+                    <div class="d-flex gap-2 align-items-center">
+                        <div class="form-check form-switch small mb-0 me-2">
+                            <input class="form-check-input" type="checkbox" id="autoWatch" onchange="toggleWatch()">
+                            <label class="form-check-label text-muted" style="font-size:0.7rem;" for="autoWatch">Sensor</label>
+                        </div>
+                        <button class="btn-icon-sm" onclick="toggleDict()" title="Manage Triggers"><i class="fas fa-book"></i></button>
+                        <button class="btn-icon-sm" onclick="clearRp()"><i class="fas fa-trash"></i></button>
                     </div>
                 </div>
-                <div class="mt-3 small text-info px-4 text-center" id="statusLog">Waiting for server response...</div>
+                
+                <div class="input-group input-group-sm mb-2">
+                    <span class="input-group-text bg-dark text-purple border-purple-subtle small">FIXED</span>
+                    <input type="text" id="globalContext" class="form-control form-control-sm bg-dark text-light border-purple-subtle" 
+                        placeholder="e.g. 'anime style'" oninput="localStorage.setItem('globalContext', this.value)">
+                </div>
+
+                <div class="d-flex gap-2 mb-2">
+                    <input type="text" id="rpInput" class="form-control form-control-sm" placeholder="Paste text here...">
+                    <button class="btn btn-sm btn-primary px-3" onclick="processRpSync()" style="background:#a855f7; border:none;">
+                        <i class="fas fa-bolt"></i>
+                    </button>
+                </div>
+
+                <div id="keywordPills" class="d-flex flex-wrap" style="min-height: 20px;"></div>
+
+                <div id="dictPanel" class="dict-panel">
+                    <div class="d-flex gap-2 mb-2">
+                        <input type="text" id="triggerIn" class="form-control form-control-sm" placeholder="Trigger (e.g. 'sky')">
+                        <input type="text" id="keywordIn" class="form-control form-control-sm" placeholder="AI Keyword">
+                        <button class="btn btn-sm btn-info" onclick="addTrigger()"><i class="fas fa-plus"></i></button>
+                    </div>
+                    <div id="dictList"></div>
+                </div>
             </div>
 
-            <img id="resultImg" class="d-none">
-            
-            <button id="dlBtn" class="btn btn-dark btn-sm position-absolute top-0 end-0 m-3 d-none" onclick="downloadImg()">
-                <i class="fas fa-download"></i>
-            </button>
-        </div>
-
-        <!-- HISTORY -->
-        <div class="mt-4 mb-2 d-flex justify-content-between align-items-center">
-            <span class="small fw-bold text-muted">RECENT ART</span>
-            <button class="btn btn-sm btn-link text-muted p-0" onclick="clearHistory()">Clear</button>
-        </div>
-        <div id="historyStrip" class="history-strip"></div>
-
-        <!-- PROMPTS -->
-        <div class="input-group-custom mt-4">
-            <label>Positive Prompt</label>
-            <textarea id="prompt" rows="3" placeholder="Describe your masterpiece..."></textarea>
-        </div>
-
-        <div class="input-group-custom">
-            <label>Negative Prompt</label>
-            <textarea id="negPrompt" rows="2" placeholder="What to avoid..."></textarea>
-        </div>
-    </div>
-
-    <!-- CONTROL PANEL -->
-    <div class="control-panel">
-        <div class="d-flex gap-2">
-            <button class="btn btn-dark" style="width: 60px; border-radius: 16px;" onclick="toggleDrawer('resDrawer')">
-                <i class="fas fa-expand"></i>
-            </button>
-            <button id="genBtn" class="btn btn-gen flex-grow-1" onclick="startGeneration()">
-                <i class="fas fa-bolt me-2"></i> GENERATE
-            </button>
-            <button class="btn btn-dark" style="width: 60px; border-radius: 16px;" onclick="toggleDrawer('settingsDrawer')">
-                <i class="fas fa-cog"></i>
-            </button>
-        </div>
-    </div>
-
-    <!-- DRAWERS -->
-    <div id="resDrawer" class="drawer">
-        <h6 class="fw-bold mb-3">Aspect Ratio</h6>
-        <div class="row g-2">
-            <div class="col-6"><button class="btn btn-dark w-100 py-3" onclick="setRes(512,512)">1:1 Square</button></div>
-            <div class="col-6"><button class="btn btn-dark w-100 py-3" onclick="setRes(512,768)">2:3 Portrait</button></div>
-            <div class="col-6"><button class="btn btn-dark w-100 py-3" onclick="setRes(768,512)">3:2 Landscape</button></div>
-            <div class="col-6"><button class="btn btn-dark w-100 py-3" onclick="setRes(1024,1024)">1:1 HD</button></div>
-        </div>
-    </div>
-
-    <div id="settingsDrawer" class="drawer">
-        <h6 class="fw-bold mb-3">Advanced Settings</h6>
-        <div class="row g-2 mb-3">
-            <div class="col-6">
-                <label class="small text-muted">Steps</label>
-                <input type="number" id="steps" class="form-control bg-dark text-light border-secondary" value="20">
+            <!-- IMAGE OUTPUT -->
+            <div class="image-output-container" id="imageOutput">
+                <div id="placeholder" class="text-center text-muted">
+                    <i class="fas fa-sparkles fa-3x mb-3"></i>
+                    <p>Output Ready</p>
+                </div>
+                <div class="loading-overlay" id="loader">
+                    <div class="spinner-border text-primary mb-2"></div>
+                    <div class="fw-bold mb-2">Generating...</div>
+                    <div class="progress w-75" style="height: 6px; background: rgba(255,255,255,0.1);">
+                        <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-info" style="width: 0%"></div>
+                    </div>
+                </div>
+                <img id="resultImg" class="d-none">
+                <button id="downloadBtn" class="btn btn-dark btn-sm position-absolute top-0 end-0 m-2 d-none" onclick="downloadImage()">
+                    <i class="fas fa-download"></i>
+                </button>
             </div>
-            <div class="col-6">
-                <label class="small text-muted">CFG</label>
-                <input type="number" id="cfg" class="form-control bg-dark text-light border-secondary" value="7">
+
+            <!-- RECENT HISTORY -->
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <label class="small fw-bold text-muted">HISTORY</label>
+                <button class="btn btn-sm btn-link text-danger p-0" style="font-size: 0.7rem; text-decoration: none;" onclick="clearImageHistory()">
+                    Clear All
+                </button>
+            </div>
+            <div id="historyStrip" class="d-flex gap-2 overflow-x-auto mb-4 pb-2" style="scrollbar-width: none; min-height: 60px;"></div>
+
+            <!-- PROMPTS -->
+            <div class="prompt-section">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <label class="small fw-bold text-muted">PROMPT</label>
+                    <button class="btn btn-sm btn-outline-secondary py-0" style="font-size: 0.75rem;" onclick="togglePromptHistory()">
+                        History
+                    </button>
+                </div>
+                <textarea id="prompt" class="form-control mb-3" rows="3" placeholder="A beautiful sunset..."></textarea>
+                
+                <label class="small fw-bold text-muted mb-2">NEGATIVE PROMPT</label>
+                <textarea id="negativePrompt" class="form-control" rows="2" placeholder="blurry, low quality..."></textarea>
             </div>
         </div>
-        <div class="form-check form-switch mb-3">
-            <input class="form-check-input" type="checkbox" id="hiresFix">
-            <label class="form-check-label">Hires. Fix (High Quality)</label>
-        </div>
-        <button class="btn btn-accent w-100" onclick="toggleDrawer()">Close</button>
     </div>
 
-    <!-- FIX MODAL -->
-    <div class="modal fade" id="fixModal" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
+    <!-- PROMPT HISTORY MODAL -->
+    <div class="modal fade" id="promptHistoryModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content bg-dark border-secondary text-light">
                 <div class="modal-header border-secondary">
-                    <h5 class="modal-title text-info">DEEP FIX GUIDE</h5>
+                    <h6 class="modal-title">Prompt History</h6>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body small">
-                    <p>The <b>504</b> and <b>413</b> errors are caused by proxy limits. To fix them forever:</p>
-                    <ol>
-                        <li>Edit your <code>webui-user.bat</code> file.</li>
-                        <li>Replace your command line args with this:</li>
-                    </ol>
-                    <div class="bg-black p-2 rounded mb-3">
-                        <code class="text-success">set COMMANDLINE_ARGS=--api --cors-allow-origins *</code>
-                    </div>
-                    <p>3. Restart Stable Diffusion and turn on <b>Direct Mode</b> in this app.</p>
+                <div class="modal-body p-0">
+                    <div id="promptHistoryList" class="list-group list-group-flush"></div>
+                </div>
+                <div class="modal-footer border-secondary p-2">
+                    <button class="btn btn-sm btn-outline-danger w-100" onclick="clearPromptHistory()">Clear History</button>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- FIXED BOTTOM PANEL -->
+    <div class="fixed-bottom-panel">
+        <div id="resDrawer" class="res-drawer">
+            <div class="small text-muted mb-2 fw-bold text-uppercase" style="font-size: 0.7rem;">Aspect Ratio</div>
+            <button class="btn-preset active" onclick="setRes(512, 512, this)">1:1 Square <i class="fas fa-check"></i></button>
+            <button class="btn-preset" onclick="setRes(1024, 1024, this)">1:1 HD <i class="fas fa-check"></i></button>
+            <button class="btn-preset" onclick="setRes(512, 768, this)">2:3 Portrait <i class="fas fa-check"></i></button>
+            <button class="btn-preset" onclick="setRes(768, 512, this)">3:2 Landscape <i class="fas fa-check"></i></button>
+        </div>
+
+        <div id="settingsDrawer" class="settings-drawer">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="small fw-bold text-uppercase text-muted">Settings</span>
+                <button class="btn btn-sm btn-outline-secondary py-0" onclick="toggleSettings()"><i class="fas fa-times"></i></button>
+            </div>
+            
+            <div class="row g-2">
+                <div class="col-6">
+                    <label class="small text-muted">Width</label>
+                    <input type="number" id="width" class="form-control form-control-sm" value="512" step="64">
+                </div>
+                <div class="col-6">
+                    <label class="small text-muted">Height</label>
+                    <input type="number" id="height" class="form-control form-control-sm" value="512" step="64">
+                </div>
+            </div>
+
+            <div class="row g-2">
+                <div class="col-6">
+                    <label class="small text-muted">Steps</label>
+                    <input type="number" id="steps" class="form-control form-control-sm" value="20">
+                </div>
+                <div class="col-6">
+                    <label class="small text-muted">CFG</label>
+                    <input type="number" id="cfg" class="form-control form-control-sm" value="7" step="0.5">
+                </div>
+            </div>
+
+            <div>
+                <label class="small text-muted">Sampler</label>
+                <select id="sampler" class="form-select form-select-sm mt-1">
+                    <option value="Euler a">Euler a</option>
+                    <option value="DPM++ 2M Karras">DPM++ 2M Karras</option>
+                    <option value="DPM++ SDE Karras">DPM++ SDE Karras</option>
+                </select>
+            </div>
+            
+             <div>
+                <label class="small text-muted">Seed (-1 for random)</label>
+                <input type="number" id="seed" class="form-control form-control-sm" value="-1">
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top border-secondary">
+                <label class="small fw-bold text-info mb-0">Hires. fix</label>
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="enableHires">
+                </div>
+            </div>
+            
+            <div id="hiresControls" class="row g-2 opacity-50">
+                <div class="col-6">
+                    <label class="small text-muted">Scale</label>
+                    <input type="number" id="hrScale" class="form-control form-control-sm" value="2" step="0.1">
+                </div>
+                <div class="col-6">
+                    <label class="small text-muted">Denoise</label>
+                    <input type="number" id="hrDenoise" class="form-control form-control-sm" value="0.5" step="0.05">
+                </div>
+            </div>
+        </div>
+
+        <div class="control-row">
+            <button class="btn-res-toggle" onclick="toggleRes()"><i class="fas fa-expand"></i></button>
+            <div class="batch-input-group">
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fas fa-images"></i></span>
+                    <input type="number" id="batchCount" class="form-control text-center px-1" value="1" min="1" max="8">
+                </div>
+            </div>
+            <button id="genBtn" class="btn-generate" onclick="generateImage()">
+                <i class="fas fa-bolt"></i> GENERATE
+            </button>
+            <button class="btn-res-toggle" onclick="toggleSettings()"><i class="fas fa-cog"></i></button>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Hard reset stale PWA/service-worker state from older broken builds.
-        (async () => {
-            try {
-                if ('serviceWorker' in navigator) {
-                    const registrations = await navigator.serviceWorker.getRegistrations();
-                    await Promise.all(registrations.map((registration) => registration.unregister()));
-                }
-                if ('caches' in window) {
-                    const keys = await caches.keys();
-                    await Promise.all(keys.map((key) => caches.delete(key)));
-                }
-            } catch (e) {
-                console.warn('Cache cleanup warning:', e);
-            }
-        })();
-    </script>
-    <script>
-        const $ = id => document.getElementById(id);
-        const state = {
-            isGenerating: false,
-            activeProxy: "https://api.allorigins.win/raw?url=",
-            proxies: [
-                "https://api.allorigins.win/raw?url=",
-                "https://corsproxy.io/?",
-                "https://thingproxy.freeboard.io/fetch/"
-            ],
-            history: JSON.parse(localStorage.getItem('forge_history') || '[]'),
-            settings: { w: 512, h: 512 }
-        };
+        const get = id => document.getElementById(id);
+        const apiUrl = get('apiUrl'), prompt = get('prompt'), negPrompt = get('negativePrompt'),
+              width = get('width'), height = get('height'), steps = get('steps'), 
+              cfg = get('cfg'), sampler = get('sampler'), 
+              batchCount = get('batchCount'), connBadge = get('connBadge'),
+              loader = get('loader'), resultImg = get('resultImg'), 
+              placeholder = get('placeholder'), downloadBtn = get('downloadBtn'), 
+              genBtn = get('genBtn'), resDrawer = get('resDrawer'), 
+              historyStrip = get('historyStrip'), enableHires = get('enableHires'), 
+              hrScale = get('hrScale'), hrDenoise = get('hrDenoise'),
+              hiresControls = get('hiresControls'), settingsDrawer = get('settingsDrawer'), 
+              seed = get('seed'), autoWatch = get('autoWatch'),
+              rpDrawer = get('rpDrawer'), rpInput = get('rpInput'), 
+              rpToggleBtn = get('rpToggleBtn'), keywordPills = get('keywordPills'), 
+              dictPanel = get('dictPanel'), dictList = get('dictList'),
+              triggerIn = get('triggerIn'), keywordIn = get('keywordIn'),
+              globalContext = get('globalContext'), 
+              useDirect = get('useDirect'), connHelp = get('connHelp'),
+              progressBar = get('progressBar');
 
-        // UI SYNC
+        let isGenerating = false;
+        let activeProxy = "https://corsproxy.io/?"; 
+        let isRpMode = false;
+        let lastClipboardText = "";
+        let watchInterval = null;
+        let customDict = JSON.parse(localStorage.getItem('rpDictionary') || '{}');
+        let progressTimer = null;
+
         window.onload = () => {
-            $('apiUrl').value = localStorage.getItem('forge_url') || '';
-            $('useDirect').checked = localStorage.getItem('forge_direct') === 'true';
-            renderHistory();
+            if (localStorage.getItem('useDirect') === 'true') useDirect.checked = true;
+            if (localStorage.getItem('apiUrl')) apiUrl.value = localStorage.getItem('apiUrl');
+            if (globalContext) globalContext.value = localStorage.getItem('globalContext') || '';
+            loadHistory();
             checkConnection();
         };
 
-        function toggleMode() {
-            localStorage.setItem('forge_direct', $('useDirect').checked);
+        function toggleDirect() {
+            localStorage.setItem('useDirect', useDirect.checked);
             checkConnection();
         }
 
-        function toggleDrawer(id) {
-            document.querySelectorAll('.drawer').forEach(d => {
-                if (d.id === id) d.classList.toggle('active');
-                else d.classList.remove('active');
-            });
-        }
-
-        function setRes(w, h) {
-            state.settings.w = w; state.settings.h = h;
-            toggleDrawer();
-        }
-
-        // CONNECTION
         async function checkConnection() {
-            const base = $('apiUrl').value.trim().replace(/\/$/, '');
+            let base = apiUrl.value.trim().replace(/\/$/, '');
             if (!base) return;
-            localStorage.setItem('forge_url', base);
 
+            const sdIndex = base.indexOf('/sdapi');
+            if (sdIndex !== -1) base = base.substring(0, sdIndex);
+            
+            apiUrl.value = base;
+            localStorage.setItem('apiUrl', base);
+            
             const testUrl = `${base}/sdapi/v1/options`;
-            $('connStatus').textContent = "TESTING...";
-            $('connStatus').className = "status-pill status-testing";
+            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(testUrl)}`;
+            
+            connBadge.textContent = "TESTING...";
+            connBadge.className = "badge-status bg-info";
+            connHelp.classList.add('d-none');
 
-            // Attempt 1: Direct
+            // 1. Try Direct
             try {
                 const res = await fetch(testUrl, { method: 'GET', mode: 'cors' });
                 if (res.ok) {
-                    state.activeProxy = "";
-                    $('connStatus').textContent = "DIRECT ONLINE";
-                    $('connStatus').className = "status-pill status-online";
-                    $('doctorBox').style.display = 'none';
+                    activeProxy = "";
+                    connBadge.textContent = "DIRECT ONLINE";
+                    connBadge.className = "badge-status bg-success";
                     return;
                 }
-            } catch (e) { }
+            } catch (e) { console.warn("Direct fail"); }
 
-            // Attempt 2: Proxy
-            if (!$('useDirect').checked) {
-                for (let proxy of state.proxies) {
-                    try {
-                        const res = await fetch(proxy + encodeURIComponent(testUrl));
-                        if (res.ok) {
-                            state.activeProxy = proxy;
-                            $('connStatus').textContent = "PROXY ONLINE";
-                            $('connStatus').className = "status-pill status-online";
-                            $('doctorBox').style.display = 'none';
-                            return;
-                        }
-                    } catch (e) { }
-                }
-            }
-
-            $('connStatus').textContent = $('useDirect').checked ? "CORS BLOCKED" : "OFFLINE";
-            $('connStatus').className = "status-pill status-error";
-            $('doctorBox').style.display = 'block';
-        }
-
-        function forceCheck() { checkConnection(); }
-
-        // GENERATION ENGINE
-        async function startGeneration() {
-            if (state.isGenerating) return;
-            const prompt = $('prompt').value.trim();
-            if (!prompt) return alert("Prompt required");
-
-            const base = $('apiUrl').value.trim().replace(/\/$/, '');
-            const target = `${base}/sdapi/v1/txt2img`;
-            
-            state.isGenerating = true;
-            $('genBtn').disabled = true;
-            $('loader').style.display = 'flex';
-            $('placeholder').classList.add('d-none');
-            $('resultImg').classList.add('d-none');
-            $('dlBtn').classList.add('d-none');
-            $('statusLog').textContent = "Waking up server...";
-            
-            let seconds = 0;
-            const timer = setInterval(() => { seconds++; $('timerText').textContent = seconds + 's'; }, 1000);
-            
-            // Progress Polling (Resilience Heartbeat)
-            const progressInterval = setInterval(async () => {
-                const pUrl = `${base}/sdapi/v1/progress`;
-                const finalPUrl = state.activeProxy ? state.activeProxy + encodeURIComponent(pUrl) : pUrl;
+            // 2. Try Proxy
+            if (!useDirect.checked) {
                 try {
-                    const res = await fetch(finalPUrl);
+                    const res = await fetch(proxyUrl);
                     if (res.ok) {
-                        const data = await res.json();
-                        const p = Math.round(data.progress * 100);
-                        $('progressFill').style.width = p + '%';
-                        $('progressText').textContent = p + '%';
-                        if (p > 0) $('statusLog').textContent = `Processing image... (${p}%)`;
+                        activeProxy = "https://corsproxy.io/?";
+                        connBadge.textContent = "PROXY ONLINE";
+                        connBadge.className = "badge-status bg-success";
+                        return;
                     }
-                } catch (e) { }
-            }, 2000);
+                } catch (e) { console.warn("Proxy fail"); }
+            }
+
+            connBadge.textContent = useDirect.checked ? "CORS ERROR" : "OFFLINE";
+            connBadge.className = "badge-status bg-danger";
+            connHelp.classList.remove('d-none');
+        }
+
+        async function updateProgress() {
+            let base = apiUrl.value.trim().replace(/\/$/, '');
+            const progressUrl = `${base}/sdapi/v1/progress`;
+            const finalUrl = activeProxy ? `${activeProxy}${encodeURIComponent(progressUrl)}` : progressUrl;
 
             try {
-                const payload = {
-                    prompt: prompt,
-                    negative_prompt: $('negPrompt').value,
-                    steps: parseInt($('steps').value),
-                    cfg_scale: parseFloat($('cfg').value),
-                    width: state.settings.w,
-                    height: state.settings.h,
-                    sampler_name: "Euler a",
-                    enable_hr: $('hiresFix').checked,
-                    denoising_strength: 0.5
-                };
-
-                const finalUrl = state.activeProxy ? state.activeProxy + encodeURIComponent(target) : target;
-                
-                const response = await fetch(finalUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-
-                if (!response.ok) {
-                    if (response.status === 504) throw new Error("GATEWAY_TIMEOUT");
-                    if (response.status === 413) throw new Error("PAYLOAD_TOO_LARGE");
-                    throw new Error("HTTP_" + response.status);
+                const res = await fetch(finalUrl);
+                if (res.ok) {
+                    const data = await res.json();
+                    progressBar.style.width = `${Math.round(data.progress * 100)}%`;
                 }
+            } catch (e) { }
+        }
 
-                const data = await response.json();
-                if (data.images && data.images.length > 0) {
-                    displayResult(data.images[0], prompt);
+        async function generateImage() {
+            if (isGenerating) return;
+            const promptVal = prompt.value.trim();
+            if (!promptVal) return alert('Prompt required');
+            savePromptToHistory(promptVal);
+
+            const count = parseInt(batchCount.value) || 1;
+            let base = apiUrl.value.trim().replace(/\/$/, '');
+            const targetUrl = base.includes('/sdapi/v1/') ? base : `${base}/sdapi/v1/txt2img`;
+
+            isGenerating = true;
+            loader.style.display = 'flex';
+            progressBar.style.width = '0%';
+            placeholder.classList.add('d-none');
+            progressTimer = setInterval(updateProgress, 2000);
+            
+            try {
+                for (let i = 0; i < count; i++) {
+                    const payload = {
+                        prompt: promptVal, negative_prompt: negPrompt.value,
+                        steps: parseInt(steps.value), cfg_scale: parseFloat(cfg.value),
+                        width: parseInt(width.value), height: parseInt(height.value),
+                        sampler_name: sampler.value, batch_size: 1,
+                        seed: parseInt(seed.value),
+                        enable_hr: enableHires.checked,
+                        hr_scale: parseFloat(hrScale.value),
+                        denoising_strength: parseFloat(hrDenoise.value)
+                    };
+
+                    // Proxy-safe mode: shrink returned payload for high-res jobs.
+                    // This keeps your requested resolution but asks SD to return JPEG instead of huge PNG.
+                    if (activeProxy) {
+                        payload.override_settings = {
+                            samples_format: "jpeg",
+                            jpeg_quality: 70
+                        };
+                    }
+
+                    const finalUrl = activeProxy ? `${activeProxy}${encodeURIComponent(targetUrl)}` : targetUrl;
+
+                    const response = await fetch(finalUrl, { 
+                        method: 'POST', 
+                        headers: { 'Content-Type': 'application/json' }, 
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        if (response.status === 504) {
+                            alert("TIMEOUT (504): Proxy cut the response because generation took too long. Your server likely finished the image. For full reliability use Direct Mode.");
+                        } else if (response.status === 413) {
+                            alert("PAYLOAD TOO LARGE (413): Proxy rejected the returned image size. App now uses JPEG in proxy mode, but very high-res still needs Direct Mode.");
+                        }
+                        throw new Error(`HTTP error ${response.status}`);
+                    }
+                    
+                    const resultData = await response.json();
+                    if (resultData && resultData.images && resultData.images.length > 0) {
+                        displayImage(resultData.images[0], promptVal);
+                    }
                 }
-
-            } catch (err) {
-                console.error(err);
-                handleGenError(err.message);
+            } catch (error) {
+                console.error("Fail:", error);
+                alert("Failed: " + error.message);
             } finally {
-                state.isGenerating = false;
-                $('genBtn').disabled = false;
-                $('loader').style.display = 'none';
-                clearInterval(timer);
-                clearInterval(progressInterval);
+                isGenerating = false;
+                loader.style.display = 'none';
+                clearInterval(progressTimer);
             }
         }
 
-        function handleGenError(msg) {
-            $('doctorBox').style.display = 'block';
-            if (msg === "GATEWAY_TIMEOUT") {
-                $('errorTitle').textContent = "504 GATEWAY TIMEOUT";
-                $('errorMsg').innerHTML = "The proxy closed the gate because generation took > 30s. <b>Your image is still generating on the server!</b> Switch to Direct Mode to receive it.";
-            } else if (msg === "PAYLOAD_TOO_LARGE") {
-                $('errorTitle').textContent = "413 IMAGE TOO LARGE";
-                $('errorMsg').innerHTML = "The proxy rejected the image because it's too high quality. Switch to <b>Direct Mode</b> or disable Hires Fix.";
-            } else {
-                $('errorTitle').textContent = "CONNECTION FAILED";
-                $('errorMsg').textContent = "Could not receive the image. Error: " + msg;
+        function displayImage(base64Data, promptText) {
+            const base64 = `data:image/png;base64,${base64Data}`;
+            resultImg.src = base64;
+            resultImg.classList.remove('d-none');
+            placeholder.classList.add('d-none');
+            downloadBtn.classList.remove('d-none');
+            addToHistory({ src: base64, prompt: promptText, date: Date.now() }, true);
+        }
+
+        function addToHistory(item, save = false) {
+            const img = document.createElement('img');
+            img.src = item.src;
+            img.className = "history-item";
+            img.onclick = () => {
+                resultImg.src = item.src;
+                resultImg.classList.remove('d-none');
+                placeholder.classList.add('d-none');
+                downloadBtn.classList.remove('d-none');
+                prompt.value = item.prompt;
+            };
+            historyStrip.prepend(img);
+            if (save) {
+                try {
+                    let history = JSON.parse(localStorage.getItem('imgHistory') || '[]');
+                    history.unshift(item);
+                    if (history.length > 5) history = history.slice(0, 5); // Max 5 images
+                    
+                    let success = false;
+                    while (!success && history.length > 0) {
+                        try {
+                            localStorage.setItem('imgHistory', JSON.stringify(history));
+                            success = true;
+                        } catch (e) {
+                            history.pop(); // Remove oldest if full
+                        }
+                    }
+                } catch (e) { localStorage.removeItem('imgHistory'); }
             }
-            alert("Generation failed. See the red box above for the fix.");
         }
 
-        function displayResult(base64, promptText) {
-            const src = `data:image/png;base64,${base64}`;
-            $('resultImg').src = src;
-            $('resultImg').classList.remove('d-none');
-            $('dlBtn').classList.remove('d-none');
-            
-            // Save to history
-            const item = { src, prompt: promptText, date: Date.now() };
-            state.history.unshift(item);
-            if (state.history.length > 4) state.history.pop();
-            
-            try {
-                localStorage.setItem('forge_history', JSON.stringify(state.history));
-            } catch (e) {
-                state.history.pop();
-                localStorage.setItem('forge_history', JSON.stringify(state.history));
+        function loadHistory() {
+            const history = JSON.parse(localStorage.getItem('imgHistory') || '[]');
+            [...history].reverse().forEach(item => addToHistory(item, false));
+        }
+
+        function clearImageHistory() {
+            if (confirm("Clear history?")) {
+                localStorage.removeItem('imgHistory');
+                historyStrip.innerHTML = '';
             }
-            renderHistory();
-        }
-
-        function renderHistory() {
-            $('historyStrip').innerHTML = '';
-            state.history.forEach(item => {
-                const img = document.createElement('img');
-                img.src = item.src;
-                img.className = "history-item";
-                img.onclick = () => {
-                    $('resultImg').src = item.src;
-                    $('resultImg').classList.remove('d-none');
-                    $('dlBtn').classList.remove('d-none');
-                    $('prompt').value = item.prompt;
-                    $('placeholder').classList.add('d-none');
-                };
-                $('historyStrip').appendChild(img);
-            });
-        }
-
-        function clearHistory() {
-            state.history = [];
-            localStorage.removeItem('forge_history');
-            renderHistory();
         }
 
         function resetApp() {
-            if (confirm("Reset all settings?")) {
+            if (confirm("Reset app?")) {
                 localStorage.clear();
                 window.location.reload();
             }
         }
 
-        function downloadImg() {
-            const a = document.createElement('a');
-            a.href = $('resultImg').src;
-            a.download = `forge-${Date.now()}.png`;
-            a.click();
+        function toggleImmersiveMode() {
+            isRpMode = !isRpMode;
+            rpToggleBtn.classList.toggle('btn-warning');
+            rpDrawer.classList.toggle('active');
+            if (isRpMode) rpInput.focus();
         }
+
+        function toggleDict() { dictPanel.style.display = dictPanel.style.display === 'block' ? 'none' : 'block'; renderDict(); }
+        function addTrigger() {
+            const t = triggerIn.value.trim().toLowerCase();
+            const k = keywordIn.value.trim();
+            if (t && k) { customDict[t] = k; localStorage.setItem('rpDictionary', JSON.stringify(customDict)); renderDict(); }
+        }
+        function renderDict() {
+            dictList.innerHTML = '';
+            Object.entries(customDict).forEach(([t, k]) => {
+                const item = document.createElement('div');
+                item.className = 'dict-item';
+                item.innerHTML = `<span class="small text-info">${t}</span> <button class="btn btn-sm text-danger" onclick="delete customDict['${t}']; localStorage.setItem('rpDictionary', JSON.stringify(customDict)); renderDict();">├ù</button>`;
+                dictList.appendChild(item);
+            });
+        }
+
+        function toggleWatch() {
+            if (autoWatch.checked) {
+                watchInterval = setInterval(async () => {
+                    try {
+                        const text = await navigator.clipboard.readText();
+                        if (text && text !== lastClipboardText) {
+                            lastClipboardText = text;
+                            rpInput.value = text;
+                            processRpSync();
+                        }
+                    } catch (e) {}
+                }, 1000);
+            } else clearInterval(watchInterval);
+        }
+
+        function processRpSync() {
+            const text = rpInput.value.toLowerCase();
+            let detected = [];
+            Object.entries(customDict).forEach(([t, k]) => { if (text.includes(t)) detected.push(k); });
+            detected = [...new Set(detected)];
+            keywordPills.innerHTML = '';
+            detected.forEach(k => {
+                const span = document.createElement('span');
+                span.className = 'keyword-pill';
+                span.textContent = k;
+                keywordPills.appendChild(span);
+            });
+            const fixed = localStorage.getItem('globalContext') || "";
+            prompt.value = (fixed ? fixed + ", " : "") + detected.join(', ');
+            if (detected.length > 0) generateImage();
+        }
+
+        function clearRp() { rpInput.value = ''; keywordPills.innerHTML = ''; }
+        function toggleRes() { resDrawer.classList.toggle('active'); settingsDrawer.classList.remove('active'); }
+        function toggleSettings() { settingsDrawer.classList.toggle('active'); resDrawer.classList.remove('active'); }
+        function setRes(w, h, btn) {
+            width.value = w; height.value = h;
+            document.querySelectorAll('.btn-preset').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            resDrawer.classList.remove('active');
+        }
+
+        function savePromptToHistory(txt) {
+            let history = JSON.parse(localStorage.getItem('promptHistory') || '[]');
+            history = [txt, ...history.filter(p => p !== txt)].slice(0, 10);
+            localStorage.setItem('promptHistory', JSON.stringify(history));
+        }
+
+        function togglePromptHistory() {
+            const modal = new bootstrap.Modal(get('promptHistoryModal'));
+            const list = get('promptHistoryList');
+            list.innerHTML = '';
+            const history = JSON.parse(localStorage.getItem('promptHistory') || '[]');
+            history.forEach(txt => {
+                const btn = document.createElement('button');
+                btn.className = "list-group-item list-group-item-action bg-dark text-light border-secondary small";
+                btn.textContent = txt;
+                btn.onclick = () => { prompt.value = txt; modal.hide(); };
+                list.appendChild(btn);
+            });
+            modal.show();
+        }
+
+        function clearPromptHistory() { localStorage.removeItem('promptHistory'); get('promptHistoryList').innerHTML = ''; }
+        function downloadImage() { const a = document.createElement('a'); a.href = resultImg.src; a.download = `art-${Date.now()}.png`; a.click(); }
+        enableHires.onchange = () => { hiresControls.style.opacity = enableHires.checked ? "1" : "0.5"; };
     </script>
 </body>
 </html>
