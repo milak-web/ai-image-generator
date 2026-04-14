@@ -879,7 +879,8 @@
 
         const PROXIES = [
             "https://corsproxy.io/?",
-            "https://api.allorigins.win/raw?url="
+            "https://api.allorigins.win/raw?url=",
+            "https://thingproxy.freeboard.io/fetch/"
         ];
         let currentProxyIndex = 0;
 
@@ -974,12 +975,25 @@
         async function updateProgress() {
             let base = apiUrl.value.trim().replace(/\/$/, '');
             const progressUrl = `${base}/sdapi/v1/progress`;
-            const finalUrl = activeProxy ? `${activeProxy}${encodeURIComponent(progressUrl)}` : progressUrl;
+            
+            // Try current active proxy, then fallback to others for progress too
+            const tryFetchProgress = async (proxy) => {
+                const finalUrl = proxy ? `${proxy}${encodeURIComponent(progressUrl)}` : progressUrl;
+                const res = await fetch(finalUrl);
+                if (res.ok) return await res.json();
+                throw new Error();
+            };
 
             try {
-                const res = await fetch(finalUrl);
-                if (res.ok) {
-                    const data = await res.json();
+                let data = null;
+                try {
+                    data = await tryFetchProgress(activeProxy);
+                } catch (e) {
+                    // If active fails, try direct as fallback
+                    data = await tryFetchProgress("");
+                }
+                
+                if (data) {
                     const percent = Math.round(data.progress * 100);
                     progressBar.style.width = `${percent}%`;
                     progressText.textContent = `${percent}%`;
@@ -1024,51 +1038,61 @@
                         denoising_strength: parseFloat(hrDenoise.value)
                     };
 
-                    const finalUrl = activeProxy ? `${activeProxy}${encodeURIComponent(targetUrl)}` : targetUrl;
+                    let response = null;
+                    let lastError = null;
 
-                    try {
-                        // Use AbortController for a long timeout on Direct Mode
-                        const controller = new AbortController();
-                        const timeoutId = setTimeout(() => {
-                            if (!activeProxy) controller.abort(); // Only timeout for direct if it's REALLY long
-                        }, 120000); // 2 minutes for direct
+                    // DEFENSIVE FETCH: Try Active Proxy -> Other Proxies -> Direct
+                    const proxiesToTry = [activeProxy];
+                    if (!useDirect.checked) {
+                        PROXIES.forEach(p => { if (p !== activeProxy) proxiesToTry.push(p); });
+                    }
+                    proxiesToTry.push(""); // Final attempt: Direct
 
-                        const response = await fetch(finalUrl, { 
-                            method: 'POST', 
-                            headers: { 'Content-Type': 'application/json' }, 
-                            body: JSON.stringify(payload),
-                            signal: controller.signal
-                        });
+                    for (const proxy of proxiesToTry) {
+                        const finalUrl = proxy ? `${proxy}${encodeURIComponent(targetUrl)}` : targetUrl;
+                        try {
+                            const controller = new AbortController();
+                            const timeoutId = setTimeout(() => {
+                                if (!proxy) controller.abort(); // 2m timeout for direct
+                            }, 120000);
 
-                        clearTimeout(timeoutId);
+                            response = await fetch(finalUrl, { 
+                                method: 'POST', 
+                                headers: { 'Content-Type': 'application/json' }, 
+                                body: JSON.stringify(payload),
+                                signal: controller.signal
+                            });
+                            clearTimeout(timeoutId);
 
-                        if (!response.ok) {
+                            if (response.ok) break; // Success!
+                            
                             if (response.status === 504) {
-                                connHelp.classList.remove('d-none');
-                                const useDirectConfirm = confirm("GATEWAY TIMEOUT (504)\n\nThe proxy cut the connection because the image took too long to generate (over 30s).\n\nNOTE: Your server is likely STILL GENERATING the image! Check your server console.\n\nWOULD YOU LIKE TO OPEN THE SETUP GUIDE to enable 'Direct Mode' and avoid this forever?");
-                                if (useDirectConfirm) {
-                                    const modal = new bootstrap.Modal(get('connectionGuideModal'));
-                                    modal.show();
-                                }
-                                throw new Error("504 Gateway Timeout via Proxy");
+                                console.warn("Proxy 504 Timeout, trying next path...");
+                                lastError = "504";
                             }
-                            throw new Error(`HTTP error! status: ${response.status}`);
+                        } catch (e) {
+                            console.warn("Path failed:", proxy || "Direct", e.message);
+                            lastError = e.message;
                         }
-                        const resultData = await response.json();
-                        if (resultData && resultData.images && resultData.images.length > 0) {
-                            displayImage(resultData.images[0], promptVal);
-                        }
-                    } catch (fetchErr) {
-                        if (activeProxy && !useDirect.checked) {
-                            console.error("Proxy failed during generation, suggesting Direct Mode");
+                    }
+
+                    if (!response || !response.ok) {
+                        if (lastError === "504") {
                             connHelp.classList.remove('d-none');
+                            alert("CONNECTION TIMEOUT (504)\n\nAll paths failed to receive the image within 30s.\n\nYOUR IMAGE IS STILL GENERATING ON YOUR SERVER! Check your console.\n\nFIX: Turn on 'Direct Mode' (requires --cors-allow-origins *) to bypass these limits.");
+                        } else {
+                            alert("CONNECTION FAILED\n\nCould not reach your server. Ensure your Gradio link is still active and you have --cors-allow-origins * set.");
                         }
-                        throw fetchErr;
+                        throw new Error("Generation failed after all attempts");
+                    }
+
+                    const resultData = await response.json();
+                    if (resultData && resultData.images && resultData.images.length > 0) {
+                        displayImage(resultData.images[0], promptVal);
                     }
                 }
             } catch (error) {
                 console.error("Generation failed:", error);
-                alert("Generation failed: " + error.message);
             } finally {
                 isGenerating = false;
                 loader.style.display = 'none';
