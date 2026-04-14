@@ -620,6 +620,12 @@
             </div>
 
             <!-- RECENT HISTORY -->
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <label class="small fw-bold text-muted">RECENT HISTORY</label>
+                <button class="btn btn-sm btn-link text-danger p-0" style="font-size: 0.7rem; text-decoration: none;" onclick="clearImageHistory()">
+                    <i class="fas fa-trash-alt me-1"></i> Clear All
+                </button>
+            </div>
             <div id="historyStrip" class="d-flex gap-2 overflow-x-auto mb-4 pb-2" style="scrollbar-width: none; min-height: 60px;"></div>
 
             <!-- PROMPTS -->
@@ -962,9 +968,13 @@
             historyStrip.prepend(img);
             if (save) {
                 try {
-                    let history = JSON.parse(localStorage.getItem('imgHistory') || '[]');
+                    let history = [];
+                    try {
+                        history = JSON.parse(localStorage.getItem('imgHistory') || '[]');
+                    } catch(e) { history = []; }
+                    
                     history.unshift(item);
-                    if (history.length > 10) history.pop();
+                    if (history.length > 10) history = history.slice(0, 10);
                     
                     let success = false;
                     while (!success && history.length > 0) {
@@ -972,8 +982,12 @@
                             localStorage.setItem('imgHistory', JSON.stringify(history));
                             success = true;
                         } catch (e) {
-                            if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
-                                history.pop(); // Remove oldest if full
+                            // Universal quota error check
+                            const isQuota = e.name === 'QuotaExceededError' || 
+                                            e.name === 'NS_ERROR_DOM_QUOTA_REACHED' || 
+                                            e.code === 22 || e.code === 1014;
+                            if (isQuota) {
+                                history.pop(); // Remove oldest
                                 console.warn("Storage full, dropping oldest image...");
                             } else {
                                 throw e;
@@ -989,6 +1003,16 @@
         function loadHistory() {
             const history = JSON.parse(localStorage.getItem('imgHistory') || '[]');
             [...history].reverse().forEach(item => addToHistory(item, false));
+        }
+
+        function clearImageHistory() {
+            if (confirm("Clear all generated images from history?")) {
+                localStorage.removeItem('imgHistory');
+                historyStrip.innerHTML = '';
+                placeholder.classList.remove('d-none');
+                resultImg.classList.add('d-none');
+                downloadBtn.classList.add('d-none');
+            }
         }
 
         function resetApp() {
