@@ -637,19 +637,18 @@
             connBadge.className = "badge-status bg-info";
             connHelp.classList.add('d-none');
 
-            // 1. Try Direct
-            try {
-                const res = await fetch(testUrl, { method: 'GET', mode: 'cors' });
-                if (res.ok) {
-                    activeProxy = "";
-                    connBadge.textContent = "DIRECT ONLINE";
-                    connBadge.className = "badge-status bg-success";
-                    return;
-                }
-            } catch (e) { console.warn("Direct fail"); }
-
-            // 2. Try Proxy
-            if (!useDirect.checked) {
+            // Respect selected mode to avoid noisy/pointless CORS errors in console.
+            if (useDirect.checked) {
+                try {
+                    const res = await fetch(testUrl, { method: 'GET', mode: 'cors' });
+                    if (res.ok) {
+                        activeProxy = "";
+                        connBadge.textContent = "DIRECT ONLINE";
+                        connBadge.className = "badge-status bg-success";
+                        return;
+                    }
+                } catch (e) { console.warn("Direct fail"); }
+            } else {
                 try {
                     const res = await fetch(proxyUrl);
                     if (res.ok) {
@@ -709,30 +708,49 @@
                         denoising_strength: parseFloat(hrDenoise.value)
                     };
 
-                    // Proxy-safe mode: shrink returned payload for high-res jobs.
-                    // This keeps your requested resolution but asks SD to return JPEG instead of huge PNG.
-                    if (activeProxy) {
-                        payload.override_settings = {
-                            samples_format: "jpeg",
-                            jpeg_quality: 70
-                        };
+                    // Retry ladder in proxy mode only, without touching UI/features.
+                    const proxyAttempts = activeProxy ? [
+                        { jpeg_quality: 70, steps: parseInt(steps.value), hires: enableHires.checked },
+                        { jpeg_quality: 55, steps: Math.max(12, parseInt(steps.value) - 8), hires: false },
+                        { jpeg_quality: 45, steps: Math.max(8, parseInt(steps.value) - 12), hires: false }
+                    ] : [{ jpeg_quality: null, steps: parseInt(steps.value), hires: enableHires.checked }];
+
+                    let response = null;
+                    let lastStatus = null;
+
+                    for (let attemptIdx = 0; attemptIdx < proxyAttempts.length; attemptIdx++) {
+                        const attempt = proxyAttempts[attemptIdx];
+                        const attemptPayload = { ...payload };
+                        attemptPayload.steps = attempt.steps;
+                        attemptPayload.enable_hr = attempt.hires;
+
+                        if (activeProxy) {
+                            // Reduce returned payload size through JPEG + lower quality on retries.
+                            attemptPayload.override_settings = {
+                                samples_format: "jpeg",
+                                jpeg_quality: attempt.jpeg_quality
+                            };
+                        }
+
+                        const finalUrl = activeProxy ? `${activeProxy}${encodeURIComponent(targetUrl)}` : targetUrl;
+                        response = await fetch(finalUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(attemptPayload)
+                        });
+
+                        if (response.ok) break;
+                        lastStatus = response.status;
+                        if (!activeProxy || (response.status !== 413 && response.status !== 504)) break;
                     }
 
-                    const finalUrl = activeProxy ? `${activeProxy}${encodeURIComponent(targetUrl)}` : targetUrl;
-
-                    const response = await fetch(finalUrl, { 
-                        method: 'POST', 
-                        headers: { 'Content-Type': 'application/json' }, 
-                        body: JSON.stringify(payload)
-                    });
-
-                    if (!response.ok) {
-                        if (response.status === 504) {
-                            alert("TIMEOUT (504): Proxy cut the response because generation took too long. Your server likely finished the image. For full reliability use Direct Mode.");
-                        } else if (response.status === 413) {
-                            alert("PAYLOAD TOO LARGE (413): Proxy rejected the returned image size. App now uses JPEG in proxy mode, but very high-res still needs Direct Mode.");
+                    if (!response || !response.ok) {
+                        if (lastStatus === 504) {
+                            alert("TIMEOUT (504): Proxy timed out. For high-quality jobs, enable Direct Mode with --cors-allow-origins *.");
+                        } else if (lastStatus === 413) {
+                            alert("PAYLOAD TOO LARGE (413): Proxy rejected image payload. App retried with smaller proxy-safe settings but server response is still too large. Direct Mode is required for full-quality output.");
                         }
-                        throw new Error(`HTTP error ${response.status}`);
+                        throw new Error(`HTTP error ${lastStatus || (response && response.status)}`);
                     }
                     
                     const resultData = await response.json();
