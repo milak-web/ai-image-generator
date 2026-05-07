@@ -1039,7 +1039,7 @@
                         const newCustom = result.custom.filter(w => w !== word);
                         processRpSync({ custom: newCustom });
                     } else {
-                        const newWord = prompt("Edit keyword:", word);
+                        const newWord = window.prompt("Edit keyword:", word);
                         if (newWord !== null && newWord.trim() !== "") {
                             const newCustom = result.custom.map(w => w === word ? newWord.trim() : w);
                             processRpSync({ custom: newCustom });
@@ -1057,7 +1057,7 @@
             addPill.style.cursor = 'pointer';
             addPill.innerHTML = `<i class="fas fa-plus me-1"></i> Add`;
             addPill.onclick = () => {
-                const newWord = prompt("Add manual keyword:");
+                const newWord = window.prompt("Add manual keyword:");
                 if (newWord !== null && newWord.trim() !== "") {
                     const newCustom = [...result.custom, newWord.trim()];
                     processRpSync({ custom: newCustom });
@@ -1149,7 +1149,9 @@
 
         function localAwareFetch(rawUrl, options = {}) {
             const opts = { ...options };
-            if (isPrivateTarget(rawUrl) && opts.targetAddressSpace === undefined) {
+            const parsed = parseUrlSafe(rawUrl);
+            const isLoopback = parsed ? isLoopbackHost(parsed.hostname) : false;
+            if (isPrivateTarget(rawUrl) && !isLoopback && opts.targetAddressSpace === undefined) {
                 opts.targetAddressSpace = "local";
             }
             return fetch(rawUrl, opts);
@@ -1163,7 +1165,7 @@
 
         function configureRelayBase() {
             const current = getRelayBaseUrl();
-            const next = prompt("Enter relay base URL (example: http://127.0.0.1:8000)", current);
+            const next = window.prompt("Enter relay base URL (example: http://127.0.0.1:8000)", current);
             if (next === null) return;
             const clean = next.trim().replace(/\/$/, '');
             if (!clean) {
@@ -1247,6 +1249,7 @@
 
             if (!base) return alert("Please enter API URL");
             const parsedBase = parseUrlSafe(base);
+            const isPrivateBase = isPrivateTarget(base);
             const isHttpsPage = window.location.protocol === 'https:';
             if (isHttpsPage && parsedBase && parsedBase.protocol === 'http:' && !isLoopbackHost(parsedBase.hostname)) {
                 connBadge.textContent = "BLOCKED";
@@ -1280,7 +1283,15 @@
                 return;
             }
 
-            // 2. Try Public Proxy fallback
+            // 2. Do NOT proxy localhost/private addresses (public proxies cannot reach them)
+            if (isPrivateBase) {
+                connBadge.textContent = "OFFLINE";
+                connBadge.className = "badge-status bg-danger";
+                alert("Local/private endpoint is not reachable directly from this page right now.\n\nPublic proxy fallback is skipped for localhost/private IPs.\nCheck SD server is running, correct port, and CORS/local-network permissions.");
+                return;
+            }
+
+            // 3. Try Public Proxy fallback (public URLs only)
             try {
                 const res = await localAwareFetch(publicProxy);
                 if (res.ok) {
