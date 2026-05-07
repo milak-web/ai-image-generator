@@ -10,6 +10,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="icon" href="data:,">
     <link rel="apple-touch-icon" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/icons/brush.svg">
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -1235,6 +1236,7 @@
         }
 
         let activeProxy = ""; // Store detected working proxy
+        let isApiConnected = false;
 
         async function checkConnection() {
             // Robust URL cleaning:
@@ -1256,6 +1258,7 @@
             if (isHttpsPage && parsedBase && parsedBase.protocol === 'http:' && !isLoopbackHost(parsedBase.hostname)) {
                 connBadge.textContent = "BLOCKED";
                 connBadge.className = "badge-status bg-warning text-dark";
+                isApiConnected = false;
                 alert("Browser policy blocked this HTTP private-network target from an HTTPS site.\n\nUse one of these:\n1) Host this app locally (http://localhost)\n2) Use an HTTPS tunnel URL for your GPU API\n3) Keep API on loopback (127.0.0.1) on the same machine.");
                 return;
             }
@@ -1272,6 +1275,7 @@
                 const res = await localAwareFetch(url, { method: 'GET', mode: 'cors' });
                 if (res.ok) { 
                     activeProxy = "";
+                    isApiConnected = true;
                     connBadge.textContent = "ONLINE (DIRECT)"; 
                     connBadge.className = "badge-status bg-success"; 
                     localStorage.setItem('apiUrl', apiUrl.value);
@@ -1283,6 +1287,7 @@
             }
 
             if (!useProxy.checked) {
+                isApiConnected = false;
                 connBadge.textContent = "OFFLINE";
                 connBadge.className = "badge-status bg-danger";
                 alert("Direct connection failed and proxy is disabled. Enable Proxy or fix CORS/PNA on your API server.");
@@ -1291,6 +1296,7 @@
 
             // 2. Do NOT proxy localhost/private addresses (public proxies cannot reach them)
             if (isPrivateBase) {
+                isApiConnected = false;
                 connBadge.textContent = "OFFLINE";
                 connBadge.className = "badge-status bg-danger";
                 if (isLoopbackBase) {
@@ -1311,11 +1317,13 @@
                 const res = await localAwareFetch(publicProxy);
                 if (res.ok) {
                     activeProxy = "https://corsproxy.io/?";
+                    isApiConnected = true;
                     connBadge.textContent = "ONLINE (PROXY)"; 
                     connBadge.className = "badge-status bg-success"; 
                     localStorage.setItem('apiUrl', apiUrl.value);
                 } else throw Error(`Proxy Status ${res.status}`);
             } catch (e) { 
+                isApiConnected = false;
                 connBadge.textContent = "OFFLINE"; 
                 connBadge.className = "badge-status bg-danger"; 
                 console.error("Connection check failed:", e);
@@ -1329,6 +1337,11 @@
             const promptVal = prompt.value.trim();
             if (!promptVal) return alert('Prompt required');
             savePromptToHistory(promptVal);
+
+            if (!isApiConnected) {
+                await checkConnection();
+                if (!isApiConnected) return;
+            }
 
             const count = parseInt(batchCount.value) || 1;
             const userSeed = parseInt(seed.value);
