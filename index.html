@@ -534,6 +534,7 @@
                     <input type="text" id="apiUrl" class="form-control" placeholder="Stable Diffusion API URL...">
                     <button class="btn btn-outline-info dropdown-toggle" data-bs-toggle="dropdown"><i class="fas fa-plug"></i></button>
                     <ul class="dropdown-menu dropdown-menu-dark">
+                        <li><a class="dropdown-item" href="#" onclick="setApiUrl('http://127.0.0.1:8000')">Local Bridge (8000)</a></li>
                         <li><a class="dropdown-item" href="#" onclick="setApiUrl('http://127.0.0.1:7860')">Local SD (7860)</a></li>
                         <li><a class="dropdown-item" href="#" onclick="setApiUrl('http://192.168.1.100:7860')">Remote PC</a></li>
                         <li><a class="dropdown-item" href="#" onclick="configureRelayBase()">Set Local Relay (8000)</a></li>
