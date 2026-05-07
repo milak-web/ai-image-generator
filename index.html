@@ -1250,6 +1250,8 @@
             if (!base) return alert("Please enter API URL");
             const parsedBase = parseUrlSafe(base);
             const isPrivateBase = isPrivateTarget(base);
+            const isLoopbackBase = parsedBase ? isLoopbackHost(parsedBase.hostname) : false;
+            const targetPort = parsedBase && parsedBase.port ? parsedBase.port : "7860";
             const isHttpsPage = window.location.protocol === 'https:';
             if (isHttpsPage && parsedBase && parsedBase.protocol === 'http:' && !isLoopbackHost(parsedBase.hostname)) {
                 connBadge.textContent = "BLOCKED";
@@ -1263,6 +1265,7 @@
             
             connBadge.textContent = "LINKING...";
             connBadge.className = "badge-status bg-info";
+            let directError = null;
 
             // 1. Try Direct first (Requires --cors-allow-origins in SD)
             try {
@@ -1274,7 +1277,10 @@
                     localStorage.setItem('apiUrl', apiUrl.value);
                     return;
                 }
-            } catch (e) { console.warn("Direct connection failed, trying public proxy..."); }
+            } catch (e) {
+                directError = e;
+                console.warn("Direct connection failed, trying public proxy...", e);
+            }
 
             if (!useProxy.checked) {
                 connBadge.textContent = "OFFLINE";
@@ -1287,7 +1293,16 @@
             if (isPrivateBase) {
                 connBadge.textContent = "OFFLINE";
                 connBadge.className = "badge-status bg-danger";
-                alert("Local/private endpoint is not reachable directly from this page right now.\n\nPublic proxy fallback is skipped for localhost/private IPs.\nCheck SD server is running, correct port, and CORS/local-network permissions.");
+                if (isLoopbackBase) {
+                    alert(
+                        "Localhost backend rejected cross-origin request (CORS) or is not reachable.\n\n" +
+                        "Start your SD backend with:\n" +
+                        `--api --listen --port ${targetPort} --cors-allow-origins=https://milak-web.github.io\n\n` +
+                        "Also verify the server is actually running on that port."
+                    );
+                } else {
+                    alert("Local/private endpoint is not reachable directly from this page right now.\n\nPublic proxy fallback is skipped for localhost/private IPs.\nCheck SD server is running, correct port, and CORS/local-network permissions.");
+                }
                 return;
             }
 
