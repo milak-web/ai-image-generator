@@ -626,33 +626,15 @@
             checkConnection();
         }
 
-        function isDeadGradioShareResponse(text) {
-            if (!text) return false;
-            const t = String(text).toLowerCase();
-            return t.includes("no interface is running");
-        }
-
         async function checkConnection() {
             let base = apiUrl.value.trim().replace(/\/$/, '');
-            if (!base) return false;
+            if (!base) return;
 
             const sdIndex = base.indexOf('/sdapi');
             if (sdIndex !== -1) base = base.substring(0, sdIndex);
             
             apiUrl.value = base;
             localStorage.setItem('apiUrl', base);
-
-            let parsedBase = null;
-            try { parsedBase = new URL(base); } catch (e) { parsedBase = null; }
-            const host = parsedBase ? (parsedBase.hostname || '').toLowerCase() : '';
-            const isLocalTarget = host === 'localhost' || host === '127.0.0.1' || host === '::1';
-            const isGradioShare = host.endsWith('gradio.live') || host.endsWith('gradio.app');
-            const port = parsedBase && parsedBase.port ? parsedBase.port : '7860';
-            if (isLocalTarget && !useDirect.checked) {
-                // Public proxy cannot access localhost; force direct mode for local endpoints.
-                useDirect.checked = true;
-                localStorage.setItem('useDirect', 'true');
-            }
             
             const testUrl = `${base}/sdapi/v1/options`;
             const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(testUrl)}`;
@@ -661,68 +643,32 @@
             connBadge.className = "badge-status bg-info";
             connHelp.classList.add('d-none');
 
-            const modeOrder = isLocalTarget
-                ? ["direct"]
-                : (useDirect.checked ? ["direct", "proxy"] : ["proxy", "direct"]);
-
-            let saw404 = false;
-            let sawProxyBlocked = false;
-            let sawCorsOrOffline = false;
-
-            for (const mode of modeOrder) {
-                if (mode === "proxy" && isLocalTarget) continue;
-                const finalUrl = mode === "proxy" ? proxyUrl : testUrl;
+            // Respect selected mode to avoid noisy/pointless CORS errors in console.
+            if (useDirect.checked) {
                 try {
-                    const res = await fetch(finalUrl, mode === "proxy" ? {} : { method: 'GET', mode: 'cors' });
+                    const res = await fetch(testUrl, { method: 'GET', mode: 'cors' });
                     if (res.ok) {
-                        activeProxy = mode === "proxy" ? "https://corsproxy.io/?" : "";
-                        connBadge.textContent = mode === "proxy" ? "PROXY ONLINE" : "DIRECT ONLINE";
+                        activeProxy = "";
+                        connBadge.textContent = "DIRECT ONLINE";
                         connBadge.className = "badge-status bg-success";
-                        return true;
+                        return;
                     }
-
-                    const body = await res.text();
-                    if (isDeadGradioShareResponse(body)) {
-                        connBadge.textContent = "LINK EXPIRED";
-                        connBadge.className = "badge-status bg-danger";
-                        alert("Your shared Gradio link is currently offline/expired (\"No interface is running\"). Start a new share session and paste the new URL.");
-                        return false;
+                } catch (e) { console.warn("Direct fail"); }
+            } else {
+                try {
+                    const res = await fetch(proxyUrl);
+                    if (res.ok) {
+                        activeProxy = "https://corsproxy.io/?";
+                        connBadge.textContent = "PROXY ONLINE";
+                        connBadge.className = "badge-status bg-success";
+                        return;
                     }
-
-                    if (res.status === 404) saw404 = true;
-                    if (mode === "proxy" && (res.status === 403 || res.status === 429)) sawProxyBlocked = true;
-                    if (mode === "direct" && !isLocalTarget) sawCorsOrOffline = true;
-                } catch (e) {
-                    if (mode === "proxy") sawProxyBlocked = true;
-                    if (mode === "direct") sawCorsOrOffline = true;
-                }
+                } catch (e) { console.warn("Proxy fail"); }
             }
 
-            if (saw404 && isLocalTarget) {
-                connBadge.textContent = "API OFF";
-                connBadge.className = "badge-status bg-danger";
-                alert(`Local server is running on port ${port}, but /sdapi/v1/options is missing.\n\nStart A1111 with --api (same port) so this app can connect.`);
-                return false;
-            }
-
-            if (saw404 && isGradioShare) {
-                connBadge.textContent = "API MISSING";
-                connBadge.className = "badge-status bg-danger";
-                alert("This Gradio link is online, but /sdapi/v1/options is returning 404.\n\nLaunch A1111 with --api and create a fresh share link, or use your LAN/local API URL.");
-                return false;
-            }
-
-            if (sawProxyBlocked && !useDirect.checked) {
-                connBadge.textContent = "PROXY BLOCKED";
-                connBadge.className = "badge-status bg-danger";
-                alert("Public proxy is blocked/rejected (403/429). Try Direct Mode if your server allows CORS, or use a server URL with API+CORS enabled.");
-                return false;
-            }
-
-            connBadge.textContent = (useDirect.checked || sawCorsOrOffline) ? "CORS/OFFLINE" : "OFFLINE";
+            connBadge.textContent = useDirect.checked ? "CORS ERROR" : "OFFLINE";
             connBadge.className = "badge-status bg-danger";
             connHelp.classList.remove('d-none');
-            return false;
         }
 
         async function updateProgress() {
@@ -744,8 +690,6 @@
             const promptVal = promptInput.value.trim();
             if (!promptVal) return alert('Prompt required');
             savePromptToHistory(promptVal);
-            const connected = await checkConnection();
-            if (!connected) return;
 
             const count = parseInt(batchCount.value) || 1;
             const userSeedRaw = parseInt(seed.value);
@@ -819,12 +763,6 @@
                         }
 
                         if (!response || !response.ok) {
-                            let failedBody = "";
-                            try { failedBody = response ? await response.text() : ""; } catch (e) { failedBody = ""; }
-                            if (isDeadGradioShareResponse(failedBody)) {
-                                lastErrorMessage = "Shared Gradio link is offline/expired (No interface is running). Start a fresh share link and reconnect.";
-                                throw new Error(lastErrorMessage);
-                            }
                             if (lastStatus === 504) {
                                 lastErrorMessage = "TIMEOUT (504): Proxy timed out. For high-quality jobs, enable Direct Mode with --cors-allow-origins *.";
                             } else if (lastStatus === 413) {
