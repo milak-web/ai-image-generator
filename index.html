@@ -646,11 +646,17 @@
             try { parsedBase = new URL(base); } catch (e) { parsedBase = null; }
             const host = parsedBase ? (parsedBase.hostname || '').toLowerCase() : '';
             const isLocalTarget = host === 'localhost' || host === '127.0.0.1' || host === '::1';
+            const isRemoteTarget = !!parsedBase && !isLocalTarget;
             const port = parsedBase && parsedBase.port ? parsedBase.port : '7860';
             if (isLocalTarget && !useDirect.checked) {
                 // Public proxy cannot access localhost; force direct mode for local endpoints.
                 useDirect.checked = true;
                 localStorage.setItem('useDirect', 'true');
+            }
+            if (isRemoteTarget && useDirect.checked) {
+                // Remote public targets from GitHub Pages generally need proxy mode.
+                useDirect.checked = false;
+                localStorage.setItem('useDirect', 'false');
             }
             
             const testUrl = `${base}/sdapi/v1/options`;
@@ -704,6 +710,12 @@
                         connBadge.textContent = "LINK EXPIRED";
                         connBadge.className = "badge-status bg-danger";
                         alert("Your shared Gradio link is currently offline/expired (\"No interface is running\"). Start a new share session and paste the new URL.");
+                        return false;
+                    }
+                    if (res.status === 404) {
+                        connBadge.textContent = "API MISSING";
+                        connBadge.className = "badge-status bg-danger";
+                        alert("Target is reachable, but /sdapi/v1/options is missing (404). Make sure this is an A1111/Forge API endpoint started with --api.");
                         return false;
                     }
                 } catch (e) { console.warn("Proxy fail"); }
