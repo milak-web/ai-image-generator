@@ -3,15 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AI Studio Pro - Mobile</title>
+    <title>PixelForge Pro</title>
+    <link rel="icon" type="image/svg+xml" href="logo.svg">
     <!-- PWA Support -->
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#3b82f6">
+    <meta name="theme-color" content="#6366F1">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="description" content="PixelForge Pro: A high-performance, standalone web interface for Stable Diffusion.">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="icon" href="data:,">
-    <link rel="apple-touch-icon" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/icons/brush.svg">
+    <link rel="apple-touch-icon" href="logo.svg">
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
@@ -33,66 +34,11 @@
             padding-bottom: var(--panel-height);
             min-height: 100vh;
             overflow-x: hidden;
-            transition: background 0.5s ease;
         }
 
         .container {
             max-width: 600px;
             padding: 15px;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        /* Split View Layout */
-        body.split-view {
-            padding-bottom: 0;
-            overflow: hidden;
-        }
-
-        body.split-view .container {
-            max-width: none;
-            width: 100vw;
-            height: 100vh;
-            margin: 0;
-            padding: 0;
-            display: grid;
-            grid-template-columns: 1fr 450px;
-        }
-
-        body.split-view .web-panel {
-            position: relative;
-            display: flex;
-            transform: none;
-            height: 100vh;
-            z-index: 10;
-        }
-
-        body.split-view .main-app-content {
-            height: 100vh;
-            overflow-y: auto;
-            padding: 20px;
-            background: var(--bg-color);
-            border-left: 1px solid var(--border-color);
-            position: relative;
-            padding-bottom: 120px;
-        }
-
-        body.split-view .fixed-bottom-panel {
-            position: absolute;
-            left: auto;
-            right: 0;
-            width: 450px;
-            bottom: 0;
-        }
-
-        body.split-view .rp-sync-drawer {
-            left: auto;
-            right: 15px;
-            width: 420px;
-            transform: translateX(0) translateY(150%);
-        }
-
-        body.split-view .rp-sync-drawer.active {
-            transform: translateX(0) translateY(0);
         }
 
         .header-section {
@@ -149,17 +95,16 @@
             background: rgba(15, 23, 42, 0.95);
             backdrop-filter: blur(20px);
             border-top: 1px solid var(--border-color);
-            padding: 20px 15px; /* Increased padding */
+            padding: 20px 15px;
             z-index: 1050;
             box-shadow: 0 -10px 30px rgba(0,0,0,0.5);
-            transition: transform 0.3s ease;
         }
 
         .control-row {
             display: flex;
             align-items: center;
             gap: 12px;
-            height: 55px; /* Taller controls */
+            height: 55px;
         }
 
         .batch-input-group {
@@ -191,7 +136,7 @@
         .settings-drawer {
             position: absolute;
             bottom: 100px;
-            right: 15px; /* Aligned to right */
+            right: 15px;
             width: 300px;
             background: var(--card-bg);
             border: 1px solid var(--border-color);
@@ -219,7 +164,7 @@
 
         .res-drawer {
             position: absolute;
-            bottom: 100px; /* Moved up to avoid overlap */
+            bottom: 100px;
             left: 15px;
             width: 200px;
             background: var(--card-bg);
@@ -319,117 +264,7 @@
             z-index: 10;
         }
 
-        .accordion-item {
-            background-color: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 12px !important;
-            margin-bottom: 15px;
-        }
-        .accordion-button {
-            background-color: var(--card-bg);
-            color: var(--text-main);
-            box-shadow: none !important;
-            padding: 10px;
-            font-size: 0.9rem;
-        }
-        .accordion-button::after { filter: invert(1); scale: 0.8; }
         .badge-status { font-size: 0.7rem; padding: 4px 10px; border-radius: 20px; }
-
-        /* Web Panel Styles */
-        .web-panel {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: var(--bg-color);
-            z-index: 2000;
-            display: none;
-            flex-direction: column;
-            transition: transform 0.3s ease;
-            transform: translateY(100%);
-        }
-
-        .web-panel.active {
-            display: flex;
-            transform: translateY(0);
-        }
-
-        /* Immersive Split View */
-        body.split-view .container {
-            max-width: none;
-            margin: 0;
-            padding: 0;
-            display: grid;
-            grid-template-columns: 1fr 450px;
-            height: 100vh;
-            overflow: hidden;
-        }
-
-        body.split-view .web-panel {
-            position: relative;
-            display: flex;
-            transform: none;
-            height: 100vh;
-            border-right: 1px solid var(--border-color);
-        }
-
-        body.split-view .main-app-content {
-            height: 100vh;
-            overflow-y: auto;
-            padding: 15px;
-            padding-bottom: 120px;
-        }
-
-        body.split-view .fixed-bottom-panel {
-            left: auto;
-            width: 450px;
-        }
-
-        body.split-view .rp-sync-drawer {
-            left: auto;
-            right: 15px;
-            transform: translateY(150%);
-            width: 420px;
-        }
-
-        body.split-view .rp-sync-drawer.active {
-            transform: translateY(0);
-        }
-
-        .web-header {
-            background: var(--card-bg);
-            padding: 10px 15px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .web-frame-container {
-            flex: 1;
-            background: white;
-            position: relative;
-        }
-
-        .web-frame {
-            width: 100%;
-            height: 100%;
-            border: none;
-        }
-
-        .btn-web-toggle {
-            width: 45px;
-            height: 45px;
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            color: var(--text-main);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s;
-        }
 
         .rp-sync-drawer {
             position: fixed;
@@ -450,12 +285,6 @@
 
         .rp-sync-drawer.active {
             transform: translateX(-50%) translateY(0);
-        }
-
-        .rp-compact-row {
-            display: flex;
-            align-items: center;
-            gap: 10px;
         }
 
         .keyword-pill {
@@ -504,13 +333,25 @@
             font-size: 0.8rem;
         }
 
-        /* Clean up unused layouts */
-        .web-panel, .btn-web-toggle, #splitToggleBtn { display: none !important; }
-        body.split-view .container { display: block !important; grid-template-columns: none !important; }
+        .history-item {
+            height: 60px;
+            width: 60px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            cursor: pointer;
+            flex-shrink: 0;
+        }
     </style>
 </head>
 <body>
     <div class="container" id="appContainer">
+        <!-- HEADER WITH LOGO -->
+        <div class="d-flex align-items-center justify-content-center mb-4 mt-2">
+            <img src="logo.svg" alt="PixelForge Logo" style="width: 45px; height: 45px; margin-right: 12px; filter: drop-shadow(0 0 8px rgba(99, 102, 241, 0.5));">
+            <h2 class="mb-0 fw-bold" style="background: linear-gradient(135deg, #6366F1 0%, #A855F7 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">PixelForge Pro</h2>
+        </div>
+        
         <!-- MAIN CONTENT WRAPPER -->
         <div class="main-app-content" id="mainContent">
             <!-- TOP: URL INPUT & STATUS -->
@@ -518,40 +359,40 @@
                 <div class="d-flex justify-content-between align-items-center mb-2">
                     <div class="d-flex gap-2 align-items-center">
                         <span id="connBadge" class="badge-status bg-danger">OFFLINE</span>
-                        <span id="queueBadge" class="badge bg-primary d-none" style="font-size: 0.65rem; border-radius: 10px;">QUEUED: 0</span>
+                        <div class="form-check form-switch small mb-0 ms-2">
+                            <input class="form-check-input" type="checkbox" id="useDirect" onchange="toggleDirect()">
+                            <label class="form-check-label text-muted" style="font-size:0.7rem;" for="useDirect">Direct Mode</label>
+                        </div>
                     </div>
                     <div class="d-flex gap-2 align-items-center">
+                        <button class="btn btn-sm btn-outline-danger py-0" style="font-size: 0.7rem;" onclick="resetApp()">
+                            <i class="fas fa-trash-alt me-1"></i> Reset
+                        </button>
                         <button id="rpToggleBtn" class="btn btn-sm btn-outline-warning py-0" onclick="toggleImmersiveMode()">
                             <i class="fas fa-magic me-1"></i> RP Mode
                         </button>
-                        <div class="form-check form-switch small mb-0">
-                            <input class="form-check-input" type="checkbox" id="useProxy" checked>
-                            <label class="form-check-label text-muted" for="useProxy">Proxy</label>
-                        </div>
                     </div>
                 </div>
                 <div class="input-group">
-                    <input type="text" id="apiUrl" class="form-control" placeholder="Stable Diffusion API URL...">
-                    <button class="btn btn-outline-info dropdown-toggle" data-bs-toggle="dropdown"><i class="fas fa-plug"></i></button>
-                    <ul class="dropdown-menu dropdown-menu-dark">
-                        <li><a class="dropdown-item" href="#" onclick="setApiUrl('http://127.0.0.1:8000')">Local Bridge (8000)</a></li>
-                        <li><a class="dropdown-item" href="#" onclick="setApiUrl('http://127.0.0.1:7860')">Local SD (7860)</a></li>
-                        <li><a class="dropdown-item" href="#" onclick="setApiUrl('http://192.168.1.100:7860')">Remote PC</a></li>
-                        <li><a class="dropdown-item" href="#" onclick="configureRelayBase()">Set Local Relay (8000)</a></li>
-                    </ul>
+                    <input type="text" id="apiUrl" class="form-control" placeholder="Paste your SD API or Gradio link here...">
                     <button class="btn btn-outline-info" onclick="checkConnection()"><i class="fas fa-sync-alt"></i></button>
                 </div>
-                <div class="small text-muted mt-2">
-                    If this app runs on GitHub Pages, local/LAN HTTP endpoints can be blocked by browser policy. Use local hosting or an HTTPS tunnel for remote GPU.
+                <!-- HELP TEXT FOR 504/CORS -->
+                <div id="connHelp" class="mt-2 small text-muted d-none" style="font-size: 0.7rem; line-height: 1.2;">
+                    <div class="p-2 border border-warning rounded bg-dark-subtle">
+                        <b class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i> Connection Issue:</b><br>
+                        - <b>504 Timeout?</b> Proxy limit reached. Use <b>Direct Mode</b> or reduce resolution.<br>
+                        - <b>CORS Error?</b> Add <code>--cors-allow-origins *</code> to your SD startup.
+                    </div>
                 </div>
             </div>
 
-            <!-- RP IMMERSIVE SYNC DRAWER (COMPACT) -->
+            <!-- RP IMMERSIVE SYNC DRAWER -->
             <div id="rpDrawer" class="rp-sync-drawer">
                 <div class="d-flex justify-content-between align-items-center mb-2">
                     <div class="d-flex align-items-center gap-2">
                         <i class="fas fa-microchip" style="color:#a855f7;"></i>
-                        <span class="small fw-bold text-muted text-uppercase">Automation Station</span>
+                        <span class="small fw-bold text-muted text-uppercase">Automation</span>
                     </div>
                     <div class="d-flex gap-2 align-items-center">
                         <div class="form-check form-switch small mb-0 me-2">
@@ -559,46 +400,32 @@
                             <label class="form-check-label text-muted" style="font-size:0.7rem;" for="autoWatch">Sensor</label>
                         </div>
                         <button class="btn-icon-sm" onclick="toggleDict()" title="Manage Triggers"><i class="fas fa-book"></i></button>
-                        <button class="btn-icon-sm" onclick="exportDict()" title="Export Memory"><i class="fas fa-save"></i></button>
                         <button class="btn-icon-sm" onclick="clearRp()"><i class="fas fa-trash"></i></button>
                     </div>
                 </div>
                 
-                <!-- Fixed Word (Global Context) -->
-                <div class="input-group input-group-sm mb-2" style="position: relative; z-index: 5000;">
-                    <span class="input-group-text bg-dark text-purple border-purple-subtle small" style="font-size: 0.65rem; pointer-events: none;">FIXED WORD</span>
+                <div class="input-group input-group-sm mb-2">
+                    <span class="input-group-text bg-dark text-purple border-purple-subtle small">FIXED</span>
                     <input type="text" id="globalContext" class="form-control form-control-sm bg-dark text-light border-purple-subtle" 
-                        placeholder="e.g. 'anime style, cinematic'" 
-                        autocomplete="off"
-                        style="position: relative; z-index: 5001; pointer-events: auto !important; cursor: text !important;"
-                        oninput="saveGlobalContext()">
+                        placeholder="e.g. 'anime style'" oninput="localStorage.setItem('globalContext', this.value)">
                 </div>
 
-                <!-- Hidden Input for Sensor Fallback -->
-                <textarea id="sensorFallback" style="position: absolute; opacity: 0; pointer-events: none; z-index: -1;"></textarea>
-
-                <div class="rp-compact-row mb-2">
-                    <button class="btn btn-sm btn-outline-info px-2" onclick="syncFromClipboard()" title="Paste from Clipboard">
-                        <i class="fas fa-paste"></i>
-                    </button>
-                    <input type="text" id="rpInput" class="form-control form-control-sm flex-grow-1" placeholder="Paste response here..." style="border-color:rgba(168, 85, 247, 0.3);">
-                    <button class="btn btn-sm btn-primary px-3" onclick="processRpSync()" style="background:#a855f7; border:none; border-radius:8px;">
+                <div class="d-flex gap-2 mb-2">
+                    <input type="text" id="rpInput" class="form-control form-control-sm" placeholder="Paste text here...">
+                    <button class="btn btn-sm btn-primary px-3" onclick="processRpSync()" style="background:#a855f7; border:none;">
                         <i class="fas fa-bolt"></i>
                     </button>
                 </div>
 
                 <div id="keywordPills" class="d-flex flex-wrap" style="min-height: 20px;"></div>
 
-                <!-- Custom Trigger Dictionary Panel -->
                 <div id="dictPanel" class="dict-panel">
                     <div class="d-flex gap-2 mb-2">
-                        <input type="text" id="triggerIn" class="form-control form-control-sm" placeholder="Trigger(s) (e.g. 'sky, clouds, blue')">
-                        <input type="text" id="keywordIn" class="form-control form-control-sm" placeholder="AI Keyword (e.g. 'starry night')">
+                        <input type="text" id="triggerIn" class="form-control form-control-sm" placeholder="Trigger (e.g. 'sky')">
+                        <input type="text" id="keywordIn" class="form-control form-control-sm" placeholder="AI Keyword">
                         <button class="btn btn-sm btn-info" onclick="addTrigger()"><i class="fas fa-plus"></i></button>
                     </div>
-                    <div id="dictList">
-                        <!-- Rules go here -->
-                    </div>
+                    <div id="dictList"></div>
                 </div>
             </div>
 
@@ -610,7 +437,10 @@
                 </div>
                 <div class="loading-overlay" id="loader">
                     <div class="spinner-border text-primary mb-2"></div>
-                    <div class="fw-bold">Dreaming...</div>
+                    <div class="fw-bold mb-2">Generating...</div>
+                    <div class="progress w-75" style="height: 6px; background: rgba(255,255,255,0.1);">
+                        <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-info" style="width: 0%"></div>
+                    </div>
                 </div>
                 <img id="resultImg" class="d-none">
                 <button id="downloadBtn" class="btn btn-dark btn-sm position-absolute top-0 end-0 m-2 d-none" onclick="downloadImage()">
@@ -619,6 +449,12 @@
             </div>
 
             <!-- RECENT HISTORY -->
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <label class="small fw-bold text-muted">HISTORY</label>
+                <button class="btn btn-sm btn-link text-danger p-0" style="font-size: 0.7rem; text-decoration: none;" onclick="clearImageHistory()">
+                    Clear All
+                </button>
+            </div>
             <div id="historyStrip" class="d-flex gap-2 overflow-x-auto mb-4 pb-2" style="scrollbar-width: none; min-height: 60px;"></div>
 
             <!-- PROMPTS -->
@@ -626,7 +462,7 @@
                 <div class="d-flex justify-content-between align-items-center mb-2">
                     <label class="small fw-bold text-muted">PROMPT</label>
                     <button class="btn btn-sm btn-outline-secondary py-0" style="font-size: 0.75rem;" onclick="togglePromptHistory()">
-                        <i class="fas fa-history me-1"></i> History
+                        History
                     </button>
                 </div>
                 <textarea id="prompt" class="form-control mb-3" rows="3" placeholder="A beautiful sunset..."></textarea>
@@ -634,8 +470,6 @@
                 <label class="small fw-bold text-muted mb-2">NEGATIVE PROMPT</label>
                 <textarea id="negativePrompt" class="form-control" rows="2" placeholder="blurry, low quality..."></textarea>
             </div>
-
-            <!-- ADVANCED (REMOVED DUPLICATES, SETTINGS DRAWER ONLY) -->
         </div>
     </div>
 
@@ -648,9 +482,7 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body p-0">
-                    <div id="promptHistoryList" class="list-group list-group-flush">
-                        <!-- Items go here -->
-                    </div>
+                    <div id="promptHistoryList" class="list-group list-group-flush"></div>
                 </div>
                 <div class="modal-footer border-secondary p-2">
                     <button class="btn btn-sm btn-outline-danger w-100" onclick="clearPromptHistory()">Clear History</button>
@@ -662,69 +494,55 @@
     <!-- FIXED BOTTOM PANEL -->
     <div class="fixed-bottom-panel">
         <div id="resDrawer" class="res-drawer">
-            <div class="small text-muted mb-2 fw-bold text-uppercase" style="font-size: 0.7rem; letter-spacing: 1px;">Aspect Ratio</div>
+            <div class="small text-muted mb-2 fw-bold text-uppercase" style="font-size: 0.7rem;">Aspect Ratio</div>
             <button class="btn-preset active" onclick="setRes(512, 512, this)">1:1 Square <i class="fas fa-check"></i></button>
             <button class="btn-preset" onclick="setRes(1024, 1024, this)">1:1 HD <i class="fas fa-check"></i></button>
             <button class="btn-preset" onclick="setRes(512, 768, this)">2:3 Portrait <i class="fas fa-check"></i></button>
             <button class="btn-preset" onclick="setRes(768, 512, this)">3:2 Landscape <i class="fas fa-check"></i></button>
-            <button class="btn-preset" onclick="setRes(576, 1024, this)">9:16 Story <i class="fas fa-check"></i></button>
         </div>
 
         <div id="settingsDrawer" class="settings-drawer">
             <div class="d-flex justify-content-between align-items-center mb-2">
-                <span class="small fw-bold text-uppercase text-muted" style="letter-spacing: 1px;">Settings</span>
+                <span class="small fw-bold text-uppercase text-muted">Settings</span>
                 <button class="btn btn-sm btn-outline-secondary py-0" onclick="toggleSettings()"><i class="fas fa-times"></i></button>
             </div>
             
-            <!-- Resolution Manual -->
             <div class="row g-2">
                 <div class="col-6">
                     <label class="small text-muted">Width</label>
-                    <input type="number" id="width" class="form-control form-control-sm" value="512" step="64" min="64">
+                    <input type="number" id="width" class="form-control form-control-sm" value="512" step="64">
                 </div>
                 <div class="col-6">
                     <label class="small text-muted">Height</label>
-                    <input type="number" id="height" class="form-control form-control-sm" value="512" step="64" min="64">
+                    <input type="number" id="height" class="form-control form-control-sm" value="512" step="64">
                 </div>
             </div>
 
-            <!-- Steps & CFG -->
             <div class="row g-2">
                 <div class="col-6">
                     <label class="small text-muted">Steps</label>
-                    <input type="number" id="steps" class="form-control form-control-sm" value="20" min="1" max="150">
+                    <input type="number" id="steps" class="form-control form-control-sm" value="20">
                 </div>
                 <div class="col-6">
-                    <label class="small text-muted">CFG Scale</label>
-                    <input type="number" id="cfg" class="form-control form-control-sm" value="7" step="0.5" min="1" max="30">
+                    <label class="small text-muted">CFG</label>
+                    <input type="number" id="cfg" class="form-control form-control-sm" value="7" step="0.5">
                 </div>
             </div>
 
-            <!-- Sampler -->
             <div>
-                <label class="small text-muted">Sampling Method</label>
+                <label class="small text-muted">Sampler</label>
                 <select id="sampler" class="form-select form-select-sm mt-1">
                     <option value="Euler a">Euler a</option>
-                    <option value="Euler">Euler</option>
                     <option value="DPM++ 2M Karras">DPM++ 2M Karras</option>
                     <option value="DPM++ SDE Karras">DPM++ SDE Karras</option>
-                    <option value="DPM++ 2M SDE Karras">DPM++ 2M SDE Karras</option>
-                    <option value="DPM++ 3M SDE Karras">DPM++ 3M SDE Karras</option>
-                    <option value="UniPC">UniPC</option>
-                    <option value="DDIM">DDIM</option>
                 </select>
             </div>
             
-            <!-- Seed -->
              <div>
                 <label class="small text-muted">Seed (-1 for random)</label>
-                <div class="input-group input-group-sm">
-                    <input type="number" id="seed" class="form-control" value="-1">
-                    <button class="btn btn-outline-secondary" onclick="document.getElementById('seed').value = '-1'"><i class="fas fa-dice"></i></button>
-                </div>
+                <input type="number" id="seed" class="form-control form-control-sm" value="-1">
             </div>
 
-            <!-- Hires Fix Toggle -->
             <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top border-secondary">
                 <label class="small fw-bold text-info mb-0">Hires. fix</label>
                 <div class="form-check form-switch">
@@ -732,27 +550,14 @@
                 </div>
             </div>
             
-            <!-- Hires Details -->
             <div id="hiresControls" class="row g-2 opacity-50">
-                <div class="col-12">
-                    <label class="small text-muted">Upscaler</label>
-                    <select id="upscaler" class="form-select form-select-sm">
-                        <option value="Latent">Latent</option>
-                        <option value="R-ESRGAN 4x+">R-ESRGAN 4x+</option>
-                        <option value="R-ESRGAN 4x+ Anime6B">R-ESRGAN 4x+ Anime6B</option>
-                    </select>
+                <div class="col-6">
+                    <label class="small text-muted">Scale</label>
+                    <input type="number" id="hrScale" class="form-control form-control-sm" value="2" step="0.1">
                 </div>
                 <div class="col-6">
-                    <label class="small text-muted">Upscale by</label>
-                    <input type="number" id="hrScale" class="form-control form-control-sm" value="2" step="0.1" min="1" max="4">
-                </div>
-                <div class="col-6">
-                    <label class="small text-muted">Hires steps</label>
-                    <input type="number" id="hrSteps" class="form-control form-control-sm" value="0" min="0">
-                </div>
-                <div class="col-6">
-                    <label class="small text-muted">Denoising</label>
-                    <input type="number" id="hrDenoise" class="form-control form-control-sm" value="0.7" step="0.05" min="0" max="1">
+                    <label class="small text-muted">Denoise</label>
+                    <input type="number" id="hrDenoise" class="form-control form-control-sm" value="0.5" step="0.05">
                 </div>
             </div>
         </div>
@@ -770,835 +575,234 @@
             </button>
             <button class="btn-res-toggle" onclick="toggleSettings()"><i class="fas fa-cog"></i></button>
         </div>
-        
-        <!-- Hidden inputs removed since they are now in settings drawer -->
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         const get = id => document.getElementById(id);
         const apiUrl = get('apiUrl'), prompt = get('prompt'), negPrompt = get('negativePrompt'),
               width = get('width'), height = get('height'), steps = get('steps'), 
-              cfg = get('cfg'), sampler = get('sampler'), useProxy = get('useProxy'),
+              cfg = get('cfg'), sampler = get('sampler'), 
               batchCount = get('batchCount'), connBadge = get('connBadge'),
-              queueBadge = get('queueBadge'), loader = get('loader'), 
-              resultImg = get('resultImg'), placeholder = get('placeholder'), 
-              downloadBtn = get('downloadBtn'), genBtn = get('genBtn'), 
-              resDrawer = get('resDrawer'), historyStrip = get('historyStrip'),
-              enableHires = get('enableHires'), upscaler = get('upscaler'),
-              hrScale = get('hrScale'), hrSteps = get('hrSteps'), hrDenoise = get('hrDenoise'),
-              hiresControls = get('hiresControls'), settingsDrawer = get('settingsDrawer'), seed = get('seed'),
-              autoWatch = get('autoWatch'),
-              rpDrawer = get('rpDrawer'), rpInput = get('rpInput'), rpToggleBtn = get('rpToggleBtn'),
-              keywordPills = get('keywordPills'), autoGenRp = get('autoGenRp'),
+              loader = get('loader'), resultImg = get('resultImg'), 
+              placeholder = get('placeholder'), downloadBtn = get('downloadBtn'), 
+              genBtn = get('genBtn'), resDrawer = get('resDrawer'), 
+              historyStrip = get('historyStrip'), enableHires = get('enableHires'), 
+              hrScale = get('hrScale'), hrDenoise = get('hrDenoise'),
+              hiresControls = get('hiresControls'), settingsDrawer = get('settingsDrawer'), 
+              seed = get('seed'), autoWatch = get('autoWatch'),
+              rpDrawer = get('rpDrawer'), rpInput = get('rpInput'), 
+              rpToggleBtn = get('rpToggleBtn'), keywordPills = get('keywordPills'), 
               dictPanel = get('dictPanel'), dictList = get('dictList'),
               triggerIn = get('triggerIn'), keywordIn = get('keywordIn'),
-              globalContext = get('globalContext'), sensorFallback = get('sensorFallback'),
-              appContainer = get('appContainer'), mainContent = get('mainContent');
+              globalContext = get('globalContext'), 
+              useDirect = get('useDirect'), connHelp = get('connHelp'),
+              progressBar = get('progressBar');
 
-        let generationQueue = [];
-        let isProcessing = false;
-        let activeJobsCount = 0;
-        let promptHistoryModal = null;
+        let isGenerating = false;
+        let activeProxy = "https://corsproxy.io/?"; 
         let isRpMode = false;
         let lastClipboardText = "";
         let watchInterval = null;
         let customDict = JSON.parse(localStorage.getItem('rpDictionary') || '{}');
+        let progressTimer = null;
 
-        // Initial Load
-        if (globalContext) {
-            globalContext.value = localStorage.getItem('globalContext') || '';
-            globalContext.disabled = false;
-            globalContext.readOnly = false;
-        }
-        
-        // Restore sensor state
-        if (localStorage.getItem('autoWatch') === 'true') {
-            autoWatch.checked = true;
-            // Delay to allow everything to initialize
-            setTimeout(toggleWatch, 500);
-        }
+        window.onload = () => {
+            if (localStorage.getItem('useDirect') === 'true') useDirect.checked = true;
+            if (localStorage.getItem('apiUrl')) apiUrl.value = localStorage.getItem('apiUrl');
+            if (globalContext) globalContext.value = localStorage.getItem('globalContext') || '';
+            loadHistory();
+            checkConnection();
 
-        function saveGlobalContext() {
-            if (globalContext) {
-                localStorage.setItem('globalContext', globalContext.value);
+            // Restore sensor state
+            if (localStorage.getItem('autoWatch') === 'true') {
+                autoWatch.checked = true;
+                setTimeout(toggleWatch, 500);
             }
-        }
+        };
 
-        function toggleDict() {
-            dictPanel.style.display = dictPanel.style.display === 'block' ? 'none' : 'block';
-            renderDict();
-        }
-
-        function exportDict() {
-            const data = JSON.stringify(customDict, null, 2);
-            const blob = new Blob([data], {type: 'application/json'});
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `rp_memory_${new Date().toISOString().slice(0,10)}.json`;
-            a.click();
-        }
-
-        function addTrigger() {
-            const rawTriggers = triggerIn.value.split(',').map(t => t.trim().toLowerCase()).filter(t => t);
-            const k = keywordIn.value.trim();
-            if (rawTriggers.length > 0 && k) {
-                const triggerKey = rawTriggers.join(', ');
-                customDict[triggerKey] = k;
-                localStorage.setItem('rpDictionary', JSON.stringify(customDict));
-                triggerIn.value = '';
-                keywordIn.value = '';
-                renderDict();
-            }
-        }
-
-        function editTrigger(t) {
-            // Decoding since it might contain special chars or quotes
-            const key = decodeURIComponent(t);
-            const k = customDict[key];
-            triggerIn.value = key;
-            keywordIn.value = k;
-            delete customDict[key];
-            localStorage.setItem('rpDictionary', JSON.stringify(customDict));
-            renderDict();
-            triggerIn.focus();
-        }
-
-        function removeTrigger(t) {
-            const key = decodeURIComponent(t);
-            if (confirm(`Delete rule for: ${key}?`)) {
-                delete customDict[key];
-                localStorage.setItem('rpDictionary', JSON.stringify(customDict));
-                renderDict();
-            }
-        }
-
-        function renderDict() {
-            dictList.innerHTML = '';
-            Object.entries(customDict).forEach(([t, k]) => {
-                const item = document.createElement('div');
-                item.className = 'dict-item';
-                // Use encoded value for safety in onclick
-                const encodedKey = encodeURIComponent(t);
-                item.innerHTML = `
-                    <div class="d-flex flex-column flex-grow-1 overflow-hidden me-2">
-                        <span class="small text-purple fw-bold text-truncate">${t}</span>
-                        <span class="small text-muted text-truncate">${k}</span>
-                    </div>
-                    <div class="d-flex gap-1">
-                        <button class="btn btn-sm btn-link text-info p-1" onclick="editTrigger('${encodedKey}')" title="Edit"><i class="fas fa-edit"></i></button>
-                        <button class="btn btn-sm btn-link text-danger p-1" onclick="removeTrigger('${encodedKey}')" title="Delete"><i class="fas fa-times"></i></button>
-                    </div>
-                `;
-                dictList.appendChild(item);
-            });
-        }
-
-        function toggleWatch() {
-            if (autoWatch.checked) {
-                console.log("Automation Sensor: ACTIVATED");
-                localStorage.setItem('autoWatch', 'true');
-                
-                // --- CLIPBOARD PERMISSION ---
-                if (navigator.clipboard && navigator.clipboard.readText) {
-                    navigator.clipboard.readText().then(t => { 
-                        console.log("Clipboard Permission Granted.");
-                        lastClipboardText = t; 
-                    }).catch(e => {
-                        console.warn("Clipboard access might require a click first.");
-                    });
-                } else {
-                    console.warn("Clipboard API not available (Non-Secure Context). Using fallback sensor.");
-                }
-                
-                if (watchInterval) clearInterval(watchInterval);
-                watchInterval = setInterval(checkClipboard, 800);
-                window.addEventListener('focus', checkClipboard);
-            } else {
-                if (watchInterval) clearInterval(watchInterval);
-                window.removeEventListener('focus', checkClipboard);
-                localStorage.setItem('autoWatch', 'false');
-                console.log("Automation Sensor: OFFLINE");
-            }
-        }
-
-        async function checkClipboard() {
-            if (!autoWatch.checked) return;
-            
-            // 1. Try Python Server's System Clipboard (Zero-Click, No Focus Required)
-            // Privacy Note: This only works when browsing from the PC itself
-            try {
-                const res = await fetch('/clipboard');
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data.text && data.text !== lastClipboardText && data.text.trim().length > 3) {
-                        processNewText(data.text);
-                        return;
-                    }
-                } else if (res.status === 403) {
-                    // Mobile/Remote access - silent ignore for privacy
-                    // console.debug("PC Clipboard sync disabled for remote devices");
-                }
-            } catch (e) {
-                // Not running via proxy or server down
-            }
-            
-            // 2. Browser API Attempt (Device-Local Clipboard)
-            // This works on both PC and Mobile, but ONLY for the device you are currently holding
-            if (navigator.clipboard && navigator.clipboard.readText) {
-                try {
-                    const text = await navigator.clipboard.readText();
-                    if (text && text !== lastClipboardText && text.trim().length > 3) {
-                        processNewText(text);
-                    }
-                } catch (e) { }
-            }
-        }
-
-        function processNewText(text) {
-            console.log("SENSOR HIT! Processing:", text.substring(0, 40) + "...");
-            lastClipboardText = text;
-            rpInput.value = text;
-            processRpSync();
-            
-            // Visual feedback
-            rpDrawer.style.borderColor = "#0dcaf0";
-            rpDrawer.classList.add('sync-glow');
-            setTimeout(() => {
-                rpDrawer.style.borderColor = "rgba(168, 85, 247, 0.5)";
-                rpDrawer.classList.remove('sync-glow');
-            }, 1000);
-        }
-
-        // --- GLOBAL PASTE SENSOR (FOOLPROOF) ---
-        document.addEventListener('paste', (e) => {
-            if (!autoWatch.checked) return;
-            try {
-                const text = (e.clipboardData || window.clipboardData).getData('text');
-                if (text && text.trim().length > 3) {
-                    console.log("PASTE SENSOR HIT!");
-                    processNewText(text);
-                }
-            } catch(err) { console.error("Paste capture failed", err); }
-        });
-
-        async function syncFromClipboard() {
-            try {
-                const text = await navigator.clipboard.readText();
-                if (text) {
-                    rpInput.value = text;
-                    processRpSync();
-                }
-            } catch (err) {
-                rpInput.focus();
-                document.execCommand('paste'); 
-                setTimeout(processRpSync, 100);
-            }
-        }
-
-        function toggleImmersiveMode() {
-            isRpMode = !isRpMode;
-            rpToggleBtn.classList.toggle('active');
-            rpToggleBtn.classList.toggle('btn-outline-warning');
-            rpToggleBtn.classList.toggle('btn-warning');
-            rpDrawer.classList.toggle('active');
-            
-            if (isRpMode) {
-                document.body.classList.add('rp-mode-active');
-                rpInput.focus();
-            } else {
-                document.body.classList.remove('rp-mode-active');
-            }
-        }
-
-        function clearRp() {
-            rpInput.value = '';
-            keywordPills.innerHTML = '';
-        }
-
-        function processRpSync(customResult = null) {
-            const text = rpInput.value.trim();
-            if (!text && !customResult) {
-                keywordPills.innerHTML = '<span class="small text-muted">Ready for input...</span>';
-                return;
-            }
-
-            const result = customResult || extractIntelligence(text);
-            keywordPills.innerHTML = '';
-            
-            // Add Custom Trigger Tags (Purple)
-            result.custom.forEach(word => {
-                const pill = document.createElement('span');
-                pill.className = 'keyword-pill';
-                pill.style.background = 'rgba(168, 85, 247, 0.2)';
-                pill.style.borderColor = '#a855f7';
-                pill.style.cursor = 'pointer';
-                pill.title = 'Click to edit, X to remove';
-                pill.innerHTML = `<i class="fas fa-star me-1"></i> <span class="pill-text">${word}</span> <i class="fas fa-times ms-1 opacity-50 remove-pill" style="font-size:0.6rem;"></i>`;
-                
-                pill.onclick = (e) => {
-                    if (e.target.classList.contains('remove-pill')) {
-                        const newCustom = result.custom.filter(w => w !== word);
-                        processRpSync({ custom: newCustom });
-                    } else {
-                        const newWord = window.prompt("Edit keyword:", word);
-                        if (newWord !== null && newWord.trim() !== "") {
-                            const newCustom = result.custom.map(w => w === word ? newWord.trim() : w);
-                            processRpSync({ custom: newCustom });
-                        }
-                    }
-                };
-                keywordPills.appendChild(pill);
-            });
-
-            // Add "Plus" pill for manual addition
-            const addPill = document.createElement('span');
-            addPill.className = 'keyword-pill';
-            addPill.style.background = 'rgba(255, 255, 255, 0.1)';
-            addPill.style.borderStyle = 'dashed';
-            addPill.style.cursor = 'pointer';
-            addPill.innerHTML = `<i class="fas fa-plus me-1"></i> Add`;
-            addPill.onclick = () => {
-                const newWord = window.prompt("Add manual keyword:");
-                if (newWord !== null && newWord.trim() !== "") {
-                    const newCustom = [...result.custom, newWord.trim()];
-                    processRpSync({ custom: newCustom });
-                }
-            };
-            keywordPills.appendChild(addPill);
-
-            // Construct Intelligent Prompt
-            if (result.custom.length === 0) {
-                console.log("No triggers found. Waiting for defined keywords...");
-                return;
-            }
-
-            // Update Prompt
-            const fixed = globalContext.value.trim();
-            let finalPrompt = fixed ? `${fixed}, ` : "";
-            finalPrompt += result.custom.join(', ');
-            prompt.value = finalPrompt;
-            
-            // Auto-gen immediately
-            generateImage();
-        }
-
-        // Removed redundant updatePromptFromResults function
-
-        function extractIntelligence(text) {
-            const lowerText = text.toLowerCase();
-            let detectedCustom = [];
-            
-            // Check User's Custom Dictionary - Split the stored triggers by comma
-            Object.entries(customDict).forEach(([triggerKey, keyword]) => {
-                const individualTriggers = triggerKey.split(',').map(t => t.trim().toLowerCase());
-                if (individualTriggers.some(t => lowerText.includes(t))) {
-                    detectedCustom.push(keyword);
-                }
-            });
-
-            return {
-                custom: [...new Set(detectedCustom)]
-            };
-        }
-
-        // Auto-process on paste
-        rpInput.addEventListener('input', () => {
-            if (rpInput.value.length > 20) {
-                processRpSync();
-            }
-        });
-
-        function setApiUrl(url) {
-            apiUrl.value = url;
-            localStorage.setItem('apiUrl', url);
+        function toggleDirect() {
+            localStorage.setItem('useDirect', useDirect.checked);
             checkConnection();
         }
 
-        function parseUrlSafe(rawUrl) {
-            try {
-                return new URL(rawUrl);
-            } catch (e) {
-                return null;
-            }
-        }
-
-        function isLoopbackHost(hostname) {
-            if (!hostname) return false;
-            const h = hostname.toLowerCase();
-            return h === 'localhost' || h === '::1' || h.startsWith('127.');
-        }
-
-        function isPrivateIPv4(hostname) {
-            if (!hostname) return false;
-            const parts = hostname.split('.');
-            if (parts.length !== 4) return false;
-            const nums = parts.map(n => Number(n));
-            if (nums.some(n => Number.isNaN(n) || n < 0 || n > 255)) return false;
-            if (nums[0] === 10) return true;
-            if (nums[0] === 192 && nums[1] === 168) return true;
-            if (nums[0] === 172 && nums[1] >= 16 && nums[1] <= 31) return true;
-            if (nums[0] === 169 && nums[1] === 254) return true;
-            return false;
-        }
-
-        function isPrivateTarget(rawUrl) {
-            const parsed = parseUrlSafe(rawUrl);
-            if (!parsed) return false;
-            const host = parsed.hostname.toLowerCase();
-            return isLoopbackHost(host) || isPrivateIPv4(host) || host.endsWith('.local');
-        }
-
-        function localAwareFetch(rawUrl, options = {}) {
-            const opts = { ...options };
-            const parsed = parseUrlSafe(rawUrl);
-            const isLoopback = parsed ? isLoopbackHost(parsed.hostname) : false;
-            if (isPrivateTarget(rawUrl) && !isLoopback && opts.targetAddressSpace === undefined) {
-                opts.targetAddressSpace = "local";
-            }
-            return fetch(rawUrl, opts);
-        }
-
-        function getRelayBaseUrl() {
-            const saved = (localStorage.getItem('relayBaseUrl') || '').trim();
-            if (saved) return saved.replace(/\/$/, '');
-            return 'http://127.0.0.1:8000';
-        }
-
-        function configureRelayBase() {
-            const current = getRelayBaseUrl();
-            const next = window.prompt("Enter relay base URL (example: http://127.0.0.1:8000)", current);
-            if (next === null) return;
-            const clean = next.trim().replace(/\/$/, '');
-            if (!clean) {
-                localStorage.removeItem('relayBaseUrl');
-                alert("Relay URL reset to default: http://127.0.0.1:8000");
-                return;
-            }
-            if (!parseUrlSafe(clean)) {
-                alert("Invalid relay URL. Example: http://127.0.0.1:8000");
-                return;
-            }
-            localStorage.setItem('relayBaseUrl', clean);
-            alert(`Relay URL saved: ${clean}`);
-        }
-
-        function toggleWebPanel() {
-            webPanel.classList.toggle('active');
-            if (webPanel.classList.contains('active') && !webFrame.src) {
-                loadWebSite();
-            }
-        }
-
-        function loadWebSite() {
-            let url = webUrl.value.trim();
-            if (!url.startsWith('http')) url = 'https://' + url;
-            
-            // Using a public proxy for the web panel since we are on GitHub Pages
-            const proxiedUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
-            webFrame.src = proxiedUrl;
-        }
-
-        function showWebFallback() {
-            webFrame.classList.add('d-none');
-            webErrorOverlay.classList.remove('d-none');
-            webErrorOverlay.classList.add('d-flex');
-        }
-
-        function openExternalBrowser() {
-            let url = webUrl.value.trim();
-            if (!url.startsWith('http')) url = 'https://' + url;
-            window.open(url, '_blank', 'width=1000,height=800');
-            toggleWebPanel(); // Close internal panel to focus on RP drawer
-        }
-
-        // Toggle Hires. fix opacity based on switch
-        enableHires.onchange = () => {
-            hiresControls.style.opacity = enableHires.checked ? "1" : "0.5";
-            localStorage.setItem('enableHires', enableHires.checked);
-        };
-
-        function toggleRes() { 
-            settingsDrawer.classList.remove('active');
-            resDrawer.classList.toggle('active'); 
-        }
-        
-        function toggleSettings() {
-            resDrawer.classList.remove('active');
-            settingsDrawer.classList.toggle('active');
-        }
-
-        function setRes(w, h, btn) {
-            width.value = w; height.value = h;
-            document.querySelectorAll('.btn-preset').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            localStorage.setItem('w', w); localStorage.setItem('h', h);
-            setTimeout(() => resDrawer.classList.remove('active'), 200);
-        }
-
-        let activeProxy = ""; // Store detected working proxy
-        let isApiConnected = false;
-
         async function checkConnection() {
-            // Robust URL cleaning:
             let base = apiUrl.value.trim().replace(/\/$/, '');
+            if (!base) return;
+
             const sdIndex = base.indexOf('/sdapi');
             if (sdIndex !== -1) base = base.substring(0, sdIndex);
             
-            if (base !== apiUrl.value) {
-                apiUrl.value = base;
-                localStorage.setItem('apiUrl', base);
-            }
-
-            if (!base) return alert("Please enter API URL");
-            const parsedBase = parseUrlSafe(base);
-            const isPrivateBase = isPrivateTarget(base);
-            const isLoopbackBase = parsedBase ? isLoopbackHost(parsedBase.hostname) : false;
-            const targetPort = parsedBase && parsedBase.port ? parsedBase.port : "7860";
-            const isHttpsPage = window.location.protocol === 'https:';
-            if (isHttpsPage && parsedBase && parsedBase.protocol === 'http:' && !isLoopbackHost(parsedBase.hostname)) {
-                connBadge.textContent = "BLOCKED";
-                connBadge.className = "badge-status bg-warning text-dark";
-                isApiConnected = false;
-                alert("Browser policy blocked this HTTP private-network target from an HTTPS site.\n\nUse one of these:\n1) Host this app locally (http://localhost)\n2) Use an HTTPS tunnel URL for your GPU API\n3) Keep API on loopback (127.0.0.1) on the same machine.");
-                return;
-            }
+            apiUrl.value = base;
+            localStorage.setItem('apiUrl', base);
             
-            const url = `${base}/sdapi/v1/options`;
-            const publicProxy = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+            const testUrl = `${base}/sdapi/v1/options`;
+            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(testUrl)}`;
             
-            connBadge.textContent = "LINKING...";
+            connBadge.textContent = "TESTING...";
             connBadge.className = "badge-status bg-info";
-            let directError = null;
+            connHelp.classList.add('d-none');
 
-            // 1. Try Direct first (Requires --cors-allow-origins in SD)
-            try {
-                const res = await localAwareFetch(url, { method: 'GET', mode: 'cors' });
-                if (res.ok) { 
-                    activeProxy = "";
-                    isApiConnected = true;
-                    connBadge.textContent = "ONLINE (DIRECT)"; 
-                    connBadge.className = "badge-status bg-success"; 
-                    localStorage.setItem('apiUrl', apiUrl.value);
-                    return;
-                }
-            } catch (e) {
-                directError = e;
-                console.warn("Direct connection failed, trying public proxy...", e);
+            // Respect selected mode to avoid noisy/pointless CORS errors in console.
+            if (useDirect.checked) {
+                try {
+                    const res = await fetch(testUrl, { method: 'GET', mode: 'cors' });
+                    if (res.ok) {
+                        activeProxy = "";
+                        connBadge.textContent = "DIRECT ONLINE";
+                        connBadge.className = "badge-status bg-success";
+                        return;
+                    }
+                } catch (e) { console.warn("Direct fail"); }
+            } else {
+                try {
+                    const res = await fetch(proxyUrl);
+                    if (res.ok) {
+                        activeProxy = "https://corsproxy.io/?";
+                        connBadge.textContent = "PROXY ONLINE";
+                        connBadge.className = "badge-status bg-success";
+                        return;
+                    }
+                } catch (e) { console.warn("Proxy fail"); }
             }
 
-            if (!useProxy.checked) {
-                isApiConnected = false;
-                connBadge.textContent = "OFFLINE";
-                connBadge.className = "badge-status bg-danger";
-                alert("Direct connection failed and proxy is disabled. Enable Proxy or fix CORS/PNA on your API server.");
-                return;
-            }
-
-            // 2. Do NOT proxy localhost/private addresses (public proxies cannot reach them)
-            if (isPrivateBase) {
-                isApiConnected = false;
-                connBadge.textContent = "OFFLINE";
-                connBadge.className = "badge-status bg-danger";
-                if (isLoopbackBase) {
-                    alert(
-                        "Localhost backend rejected cross-origin request (CORS) or is not reachable.\n\n" +
-                        "Start your SD backend with:\n" +
-                        `--api --listen --port ${targetPort} --cors-allow-origins=https://milak-web.github.io\n\n` +
-                        "Also verify the server is actually running on that port."
-                    );
-                } else {
-                    alert("Local/private endpoint is not reachable directly from this page right now.\n\nPublic proxy fallback is skipped for localhost/private IPs.\nCheck SD server is running, correct port, and CORS/local-network permissions.");
-                }
-                return;
-            }
-
-            // 3. Try Public Proxy fallback (public URLs only)
-            try {
-                const res = await localAwareFetch(publicProxy);
-                if (res.ok) {
-                    activeProxy = "https://corsproxy.io/?";
-                    isApiConnected = true;
-                    connBadge.textContent = "ONLINE (PROXY)"; 
-                    connBadge.className = "badge-status bg-success"; 
-                    localStorage.setItem('apiUrl', apiUrl.value);
-                } else throw Error(`Proxy Status ${res.status}`);
-            } catch (e) { 
-                isApiConnected = false;
-                connBadge.textContent = "OFFLINE"; 
-                connBadge.className = "badge-status bg-danger"; 
-                console.error("Connection check failed:", e);
-                alert("Connection failed. Check API URL, CORS/PNA headers, firewall, and browser local-network permission.");
-            }
+            connBadge.textContent = useDirect.checked ? "CORS ERROR" : "OFFLINE";
+            connBadge.className = "badge-status bg-danger";
+            connHelp.classList.remove('d-none');
         }
 
-        let isGenerating = false;
+        async function updateProgress() {
+            let base = apiUrl.value.trim().replace(/\/$/, '');
+            const progressUrl = `${base}/sdapi/v1/progress`;
+            const finalUrl = activeProxy ? `${activeProxy}${encodeURIComponent(progressUrl)}` : progressUrl;
+
+            try {
+                const res = await fetch(finalUrl);
+                if (res.ok) {
+                    const data = await res.json();
+                    progressBar.style.width = `${Math.round(data.progress * 100)}%`;
+                }
+            } catch (e) { }
+        }
+
         async function generateImage() {
             if (isGenerating) return;
             const promptVal = prompt.value.trim();
             if (!promptVal) return alert('Prompt required');
             savePromptToHistory(promptVal);
 
-            if (!isApiConnected) {
-                await checkConnection();
-                if (!isApiConnected) return;
-            }
-
             const count = parseInt(batchCount.value) || 1;
-            const userSeed = parseInt(seed.value);
+            const userSeedRaw = parseInt(seed.value);
+            const userSeed = Number.isNaN(userSeedRaw) ? -1 : userSeedRaw;
             let base = apiUrl.value.trim().replace(/\/$/, '');
             const targetUrl = base.includes('/sdapi/v1/') ? base : `${base}/sdapi/v1/txt2img`;
 
             isGenerating = true;
             loader.style.display = 'flex';
-            loader.querySelector('.fw-bold').textContent = "Dreaming...";
+            progressBar.style.width = '0%';
             placeholder.classList.add('d-none');
+            progressTimer = setInterval(updateProgress, 2000);
             
+            let successCount = 0;
+            let failCount = 0;
+            let lastErrorMessage = "";
+
             try {
                 for (let i = 0; i < count; i++) {
-                    const jobPayload = {
+                    // Always vary seed for batched images to avoid duplicates.
+                    const currentSeed = userSeed < 0
+                        ? Math.floor(Math.random() * 2147483647)
+                        : userSeed + i;
+
+                    const payload = {
                         prompt: promptVal, negative_prompt: negPrompt.value,
                         steps: parseInt(steps.value), cfg_scale: parseFloat(cfg.value),
                         width: parseInt(width.value), height: parseInt(height.value),
                         sampler_name: sampler.value, batch_size: 1,
-                        seed: (userSeed === -1) ? Math.floor(Math.random() * 1000000000) : userSeed,
+                        seed: currentSeed,
                         enable_hr: enableHires.checked,
-                        hr_upscaler: upscaler.value,
                         hr_scale: parseFloat(hrScale.value),
-                        hr_second_pass_steps: parseInt(hrSteps.value),
                         denoising_strength: parseFloat(hrDenoise.value)
                     };
 
-                    const finalUrl = activeProxy ? `${activeProxy}${encodeURIComponent(targetUrl)}` : targetUrl;
+                    // Retry ladder in proxy mode only, without touching UI/features.
+                    const proxyAttempts = activeProxy ? [
+                        { jpeg_quality: 70, steps: parseInt(steps.value), hires: enableHires.checked },
+                        { jpeg_quality: 55, steps: Math.max(12, parseInt(steps.value) - 8), hires: false },
+                        { jpeg_quality: 45, steps: Math.max(8, parseInt(steps.value) - 12), hires: false }
+                    ] : [{ jpeg_quality: null, steps: parseInt(steps.value), hires: enableHires.checked }];
 
-                     generationQueue.push({
-                        url: finalUrl,
-                        targetUrl: finalUrl + (finalUrl.includes('?') ? '&' : '?') + `t=${Date.now()}_${i}`,
-                        payload: jobPayload,
-                        headers: { 'Content-Type': 'application/json' },
-                        useAsync: false
-                    });
+                    let response = null;
+                    let lastStatus = null;
+
+                    try {
+                        for (let attemptIdx = 0; attemptIdx < proxyAttempts.length; attemptIdx++) {
+                            const attempt = proxyAttempts[attemptIdx];
+                            const attemptPayload = { ...payload };
+                            attemptPayload.steps = attempt.steps;
+                            attemptPayload.enable_hr = attempt.hires;
+
+                            if (activeProxy) {
+                                // Reduce returned payload size through JPEG + lower quality on retries.
+                                attemptPayload.override_settings = {
+                                    samples_format: "jpeg",
+                                    jpeg_quality: attempt.jpeg_quality
+                                };
+                            }
+
+                            const finalUrl = activeProxy ? `${activeProxy}${encodeURIComponent(targetUrl)}` : targetUrl;
+                            response = await fetch(finalUrl, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(attemptPayload)
+                            });
+
+                            if (response.ok) break;
+                            lastStatus = response.status;
+                            if (!activeProxy || (response.status !== 413 && response.status !== 504)) break;
+                        }
+
+                        if (!response || !response.ok) {
+                            if (lastStatus === 504) {
+                                lastErrorMessage = "TIMEOUT (504): Proxy timed out. For high-quality jobs, enable Direct Mode with --cors-allow-origins *.";
+                            } else if (lastStatus === 413) {
+                                lastErrorMessage = "PAYLOAD TOO LARGE (413): Proxy rejected image payload. App retried with smaller proxy-safe settings but server response is still too large. Direct Mode is required for full-quality output.";
+                            } else {
+                                lastErrorMessage = `HTTP error ${lastStatus || (response && response.status)}`;
+                            }
+                            throw new Error(lastErrorMessage);
+                        }
+                        
+                        const resultData = await response.json();
+                        if (resultData && resultData.images && resultData.images.length > 0) {
+                            displayImage(resultData.images[0], promptVal);
+                            successCount++;
+                        } else {
+                            failCount++;
+                        }
+                    } catch (imgErr) {
+                        // Continue batch even if one image fails.
+                        failCount++;
+                        console.error("Batch item failed:", imgErr);
+                        if (!lastErrorMessage) lastErrorMessage = imgErr.message || "Unknown batch error";
+                        continue;
+                    }
                 }
-                processQueue();
+
+                if (failCount > 0) {
+                    if (successCount > 0) {
+                        alert(`Batch completed with partial success: ${successCount}/${count} generated. Last error: ${lastErrorMessage}`);
+                    } else {
+                        alert(`Batch failed: ${lastErrorMessage}`);
+                    }
+                }
             } catch (error) {
-                console.error("Generation failed:", error);
-                if (error.message.includes('504')) {
-                    alert("Gateway Timeout (504): The public proxy killed the connection because the AI took too long. \n\nFIX: Add '--cors-allow-origins https://milak-web.github.io' to your Stable Diffusion startup command to connect DIRECTLY without a proxy.");
-                } else {
-                    alert("Generation failed: " + error.message);
-                }
+                console.error("Fail:", error);
+                alert("Failed: " + error.message);
+            } finally {
                 isGenerating = false;
                 loader.style.display = 'none';
-            }
-        }
-
-        async function processAsyncBatch(count, payload, headers) {
-            const relayBase = getRelayBaseUrl();
-            const proxySubmitUrl = `${relayBase}/submit_job`;
-            const proxyStatusBase = `${relayBase}/check_job_status/`;
-            const proxyResultBase = `${relayBase}/check_job/`;
-            
-            // Re-clean base in case it was modified
-            let cleanBase = apiUrl.value.trim().replace(/\/$/, '');
-            const sdIdx = cleanBase.indexOf('/sdapi');
-            if (sdIdx !== -1) cleanBase = cleanBase.substring(0, sdIdx);
-            
-            const targetUrlBase = `${cleanBase}/sdapi/v1/txt2img`;
-
-            // 1. SUBMIT ALL JOBS (FIRE AND FORGET)
-            // This ensures the Server queue is filled immediately, so it never stops working.
-            // We do NOT wait for results here.
-            loader.querySelector('.fw-bold').textContent = `Sending ${count} orders...`;
-            const jobIds = [];
-            
-            try {
-                // Rapid-fire submission loop
-                const submissionPromises = [];
-                for (let i = 0; i < count; i++) {
-                    const submitPayload = { ...payload };
-                    if (submitPayload.seed === -1) {
-                        submitPayload.seed = Math.floor(Math.random() * 1000000000);
-                    }
-                    
-                    // Fire request asynchronously - don't await strictly one-by-one if network allows
-                    // But to keep order sane, we can await slightly or just Promise.all
-                    // Let's do sequential await to ensure order, but with minimal delay.
-                    // The key is we collect IDs first, THEN poll.
-                    
-                    const p = localAwareFetch(proxySubmitUrl, {
-                        method: 'POST',
-                        headers: { ...headers, 'X-Target-URL': targetUrlBase + `?t=${Date.now()}_${i}` },
-                        body: JSON.stringify(submitPayload)
-                    }).then(async res => {
-                        if (!res.ok) throw new Error(await res.text());
-                        const data = await res.json();
-                        return data.job_id;
-                    });
-                    
-                    submissionPromises.push(p);
-                    // Tiny throttle to prevent browser from choking on 8 simultaneous fetch calls
-                    if(i % 2 === 0) await new Promise(r => setTimeout(r, 50)); 
-                }
-                
-                // Wait for all IDs to be returned
-                const results = await Promise.all(submissionPromises);
-                jobIds.push(...results);
-                
-            } catch (e) {
-                console.error("Batch submission failed", e);
-                alert(`Failed to send requests: ${e.message}`);
-                loader.style.display = 'none';
-                return;
-            }
-
-            // 2. MONITOR & DOWNLOAD (IN BACKGROUND)
-            // The server is already crunching all jobs. We just need to pick them up when ready.
-            updateQueueUI(jobIds.length);
-            
-            // We can poll for ALL jobs in parallel or sequential.
-            // Parallel polling means we get images AS SOON as they are ready, 
-            // without waiting for the previous one to download.
-            // This fixes the "delay" issue.
-            
-            processJobResults(jobIds, proxyStatusBase, proxyResultBase, payload.prompt);
-        }
-
-        async function processJobResults(jobIds, proxyStatusBase, proxyResultBase, promptText) {
-            // Start monitoring ALL jobs simultaneously
-            // Each job tracks its own status and downloads itself when ready.
-            
-            // Set initial count for UI
-            activeJobsCount = jobIds.length;
-            updateQueueUI(activeJobsCount);
-            
-            // Launch parallel trackers
-            jobIds.forEach(jobId => {
-                monitorSingleJob(jobId, proxyStatusBase, proxyResultBase, promptText);
-            });
-            
-            // UI updater loop (just for the text)
-            const monitor = setInterval(() => {
-                if (activeJobsCount <= 0) {
-                    clearInterval(monitor);
-                    isGenerating = false;
-                    loader.style.display = 'none';
-                    updateQueueUI(0);
-                } else {
-                    loader.querySelector('.fw-bold').textContent = `Dreaming... (${activeJobsCount} left)`;
-                }
-            }, 500);
-        }
-
-        async function monitorSingleJob(jobId, statusUrl, resultUrl, promptText) {
-             try {
-                 // POLL STATUS
-                 await new Promise((resolve, reject) => {
-                     let errorCount = 0;
-                     const check = async () => {
-                         try {
-                             const res = await localAwareFetch(statusUrl + jobId);
-                             if(res.ok) {
-                                 const data = await res.json();
-                                 if(data.status === 'done') return resolve();
-                                 if(data.status === 'error') return reject(new Error(data.error));
-                                 errorCount = 0;
-                             } else errorCount++;
-                         } catch(e) { errorCount++; }
-                         
-                         if(errorCount > 20) return reject(new Error("Lost connection"));
-                         setTimeout(check, 1000);
-                     };
-                     check();
-                 });
-                 
-                 // DOWNLOAD RESULT (Retries handled here)
-                 let attempts = 0;
-                 while(attempts < 3) {
-                     try {
-                         const res = await localAwareFetch(resultUrl + jobId);
-                         if(!res.ok) throw new Error(res.status);
-                         const data = await res.json();
-                         if(data.result && data.result.images) {
-                             displayImage(data.result.images[0], promptText);
-                         }
-                         break;
-                     } catch(e) {
-                         attempts++;
-                         if(attempts >= 3) console.error(`Failed to download job ${jobId}`, e);
-                         await new Promise(r => setTimeout(r, 2000));
-                     }
-                 }
-             } catch(e) {
-                 console.error(`Job ${jobId} failed:`, e);
-             } finally {
-                 activeJobsCount--;
-                 updateQueueUI(activeJobsCount);
-             }
-        }
-
-        async function processQueue() {
-            if (isProcessing || generationQueue.length === 0) return;
-            
-            isProcessing = true;
-            const totalInQueue = generationQueue.length;
-            updateQueueUI(totalInQueue);
-            
-            const job = generationQueue.shift(); // Get next job
-            
-            try {
-                loader.querySelector('.fw-bold').textContent = `Dreaming... (${totalInQueue} left)`;
-                
-                // --- DIRECT FLOW (Public Proxy or Direct Connection) ---
-                const response = await localAwareFetch(job.targetUrl, { 
-                    method: 'POST', 
-                    headers: job.headers, 
-                    body: JSON.stringify(job.payload) 
-                });
-
-                if (!response.ok) {
-                    if (response.status === 504) {
-                        throw new Error("Gateway Timeout (504): The public proxy killed the connection because the AI took too long. \n\nFIX: Add '--cors-allow-origins https://milak-web.github.io' to your Stable Diffusion startup command to connect DIRECTLY without a proxy.");
-                    }
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
-                const resultData = await response.json();
-                
-                // Handle Result
-                if (resultData && resultData.images && resultData.images.length > 0) {
-                    displayImage(resultData.images[0], job.payload.prompt);
-                }
-
-            } catch (error) {
-                console.error("Generation failed:", error);
-                alert(error.message);
-            } finally {
-                isProcessing = false;
-                // Immediately process next item
-                if (generationQueue.length > 0) {
-                    processQueue();
-                } else {
-                    isGenerating = false;
-                    loader.style.display = 'none';
-                    updateQueueUI(0);
-                }
-            }
-        }
-
-        async function fetchResultAndDisplay(jobId, promptText) {
-            try {
-                // Show a small toast or indicator that image is downloading?
-                // For now, just fetch.
-                const relayBase = getRelayBaseUrl();
-                const res = await localAwareFetch(`${relayBase}/check_job/${jobId}`);
-                if (!res.ok) throw new Error("Failed to download result");
-                const data = await res.json();
-                
-                if (data.result && data.result.images && data.result.images.length > 0) {
-                    displayImage(data.result.images[0], promptText);
-                }
-            } catch (e) {
-                console.error("Error downloading result:", e);
+                clearInterval(progressTimer);
             }
         }
 
@@ -1606,174 +810,248 @@
             const base64 = `data:image/png;base64,${base64Data}`;
             resultImg.src = base64;
             resultImg.classList.remove('d-none');
+            placeholder.classList.add('d-none');
             downloadBtn.classList.remove('d-none');
-            
-            const meta = {
-                src: base64,
-                prompt: promptText,
-                date: Date.now()
-            };
-            addToHistory(meta, true);
+            addToHistory({ src: base64, prompt: promptText, date: Date.now() }, true);
         }
 
-        function updateQueueUI(val) {
-            if (val > 0) {
-                queueBadge.classList.remove('d-none');
-                queueBadge.textContent = `QUEUE: ${val}`;
-            } else {
-                queueBadge.classList.add('d-none');
-            }
-        }
-
-        // --- IMAGE HISTORY MANAGEMENT ---
-        function addToHistory(item, saveToStorage = false) {
+        function addToHistory(item, save = false) {
             const img = document.createElement('img');
-            img.src = item.src; img.className = "history-item";
-            img.style = "height:60px; width:60px; object-fit:cover; border-radius:8px; border:2px solid transparent; cursor:pointer; flex-shrink:0;";
-            img.onclick = () => { 
-                resultImg.src = item.src; 
+            img.src = item.src;
+            img.className = "history-item";
+            img.onclick = () => {
+                resultImg.src = item.src;
                 resultImg.classList.remove('d-none');
                 placeholder.classList.add('d-none');
                 downloadBtn.classList.remove('d-none');
-                prompt.value = item.prompt || "";
+                prompt.value = item.prompt;
             };
             historyStrip.prepend(img);
-            historyStrip.scrollTo({ left: 0, behavior: 'smooth' });
-
-            if (saveToStorage) {
+            if (save) {
                 try {
                     let history = JSON.parse(localStorage.getItem('imgHistory') || '[]');
                     history.unshift(item);
+                    if (history.length > 5) history = history.slice(0, 5); // Max 5 images
                     
-                    // Simple limit first
-                    if (history.length > 6) history.pop(); 
-                    
-                    try {
-                        localStorage.setItem('imgHistory', JSON.stringify(history));
-                    } catch (e) {
-                        // If quota exceeded, aggressively remove old items until it fits
-                        if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
-                            console.warn("Storage full, removing old images...");
-                            while (history.length > 1) { // Keep at least 1 if possible, but might need 0
-                                history.pop(); // Remove oldest
-                                try {
-                                    localStorage.setItem('imgHistory', JSON.stringify(history));
-                                    break; // Success!
-                                } catch (e2) {
-                                    // Still full, continue loop
-                                }
-                            }
-                        } else {
-                            throw e;
+                    let success = false;
+                    while (!success && history.length > 0) {
+                        try {
+                            localStorage.setItem('imgHistory', JSON.stringify(history));
+                            success = true;
+                        } catch (e) {
+                            history.pop(); // Remove oldest if full
                         }
                     }
-                } catch (e) {
-                    console.warn("History storage failed", e);
-                }
+                } catch (e) { localStorage.removeItem('imgHistory'); }
             }
         }
 
         function loadHistory() {
-            try {
-                const history = JSON.parse(localStorage.getItem('imgHistory') || '[]');
-                // Reverse to prepend in correct order (oldest first, so newest ends up at start)
-                [...history].reverse().forEach(item => addToHistory(item, false));
-            } catch (e) { console.error("Error loading history", e); }
+            const history = JSON.parse(localStorage.getItem('imgHistory') || '[]');
+            [...history].reverse().forEach(item => addToHistory(item, false));
         }
 
-        // --- PROMPT HISTORY MANAGEMENT ---
+        function clearImageHistory() {
+            if (confirm("Clear history?")) {
+                localStorage.removeItem('imgHistory');
+                historyStrip.innerHTML = '';
+            }
+        }
+
+        function resetApp() {
+            if (confirm("Reset app?")) {
+                localStorage.clear();
+                window.location.reload();
+            }
+        }
+
+        function toggleImmersiveMode() {
+            isRpMode = !isRpMode;
+            rpToggleBtn.classList.toggle('btn-warning');
+            rpDrawer.classList.toggle('active');
+            if (isRpMode) rpInput.focus();
+        }
+
+        function toggleDict() { dictPanel.style.display = dictPanel.style.display === 'block' ? 'none' : 'block'; renderDict(); }
+        function addTrigger() {
+            const t = triggerIn.value.trim().toLowerCase();
+            const k = keywordIn.value.trim();
+            if (t && k) { customDict[t] = k; localStorage.setItem('rpDictionary', JSON.stringify(customDict)); renderDict(); }
+        }
+        function renderDict() {
+            dictList.innerHTML = '';
+            Object.entries(customDict).forEach(([t, k]) => {
+                const item = document.createElement('div');
+                item.className = 'dict-item';
+                // URL encode the trigger for safe function calls
+                const encodedT = encodeURIComponent(t);
+                item.innerHTML = `
+                    <div class="d-flex flex-column flex-grow-1 overflow-hidden me-2">
+                        <span class="small text-info text-truncate">${t}</span>
+                        <span class="small text-muted text-truncate">${k}</span>
+                    </div>
+                    <div class="d-flex gap-1">
+                        <button class="btn btn-sm btn-link text-info p-0" onclick="editTrigger('${encodedT}')"><i class="fas fa-edit"></i></button>
+                        <button class="btn btn-sm btn-link text-danger p-0" onclick="removeTrigger('${encodedT}')"><i class="fas fa-times"></i></button>
+                    </div>
+                `;
+                dictList.appendChild(item);
+            });
+        }
+
+        function editTrigger(t) {
+            const decodedT = decodeURIComponent(t);
+            const k = customDict[decodedT];
+            triggerIn.value = decodedT;
+            keywordIn.value = k;
+            delete customDict[decodedT];
+            localStorage.setItem('rpDictionary', JSON.stringify(customDict));
+            renderDict();
+            triggerIn.focus();
+        }
+
+        function removeTrigger(t) {
+            const decodedT = decodeURIComponent(t);
+            if (confirm(`Delete rule for: ${decodedT}?`)) {
+                delete customDict[decodedT];
+                localStorage.setItem('rpDictionary', JSON.stringify(customDict));
+                renderDict();
+            }
+        }
+
+        function toggleWatch() {
+            if (autoWatch.checked) {
+                localStorage.setItem('autoWatch', 'true');
+                console.log("Automation Sensor: ACTIVATED");
+                
+                // Immediate first check
+                syncFromClipboard();
+                
+                if (watchInterval) clearInterval(watchInterval);
+                watchInterval = setInterval(syncFromClipboard, 1000);
+            } else {
+                localStorage.setItem('autoWatch', 'false');
+                clearInterval(watchInterval);
+                console.log("Automation Sensor: OFFLINE");
+            }
+        }
+
+        async function syncFromClipboard() {
+            try {
+                const text = await navigator.clipboard.readText();
+                if (text && text !== lastClipboardText && text.trim().length > 3) {
+                    console.log("SENSOR HIT! Processing:", text.substring(0, 40) + "...");
+                    lastClipboardText = text;
+                    rpInput.value = text;
+                    processRpSync();
+                    
+                    // Visual feedback
+                    rpDrawer.style.borderColor = "#0dcaf0";
+                    setTimeout(() => {
+                        rpDrawer.style.borderColor = "rgba(168, 85, 247, 0.5)";
+                    }, 1000);
+                }
+            } catch (e) {
+                // Silent fail for clipboard access
+            }
+        }
+
+        function processRpSync(customResult = null) {
+            const text = rpInput.value.toLowerCase();
+            if (!text && !customResult) {
+                keywordPills.innerHTML = '<span class="small text-muted">Ready...</span>';
+                return;
+            }
+
+            let detected = [];
+            if (customResult) {
+                detected = customResult;
+            } else {
+                Object.entries(customDict).forEach(([t, k]) => {
+                    if (text.includes(t)) detected.push(k);
+                });
+            }
+            
+            detected = [...new Set(detected)];
+            keywordPills.innerHTML = '';
+            
+            detected.forEach(k => {
+                const span = document.createElement('span');
+                span.className = 'keyword-pill';
+                span.style.cursor = 'pointer';
+                span.title = 'Click to edit, X to remove';
+                span.innerHTML = `<i class="fas fa-star me-1"></i> ${k} <i class="fas fa-times ms-1 opacity-50 remove-pill" style="font-size:0.6rem;"></i>`;
+                
+                span.onclick = (e) => {
+                    if (e.target.classList.contains('remove-pill')) {
+                        const newDetected = detected.filter(w => w !== k);
+                        processRpSync(newDetected);
+                    } else {
+                        const newWord = prompt("Edit keyword:", k);
+                        if (newWord !== null && newWord.trim() !== "") {
+                            const newDetected = detected.map(w => w === k ? newWord.trim() : w);
+                            processRpSync(newDetected);
+                        }
+                    }
+                };
+                keywordPills.appendChild(span);
+            });
+
+            // Add manual pill
+            const addPill = document.createElement('span');
+            addPill.className = 'keyword-pill';
+            addPill.style.background = 'rgba(255, 255, 255, 0.1)';
+            addPill.style.borderStyle = 'dashed';
+            addPill.style.cursor = 'pointer';
+            addPill.innerHTML = `<i class="fas fa-plus me-1"></i> Add`;
+            addPill.onclick = () => {
+                const newWord = prompt("Add manual keyword:");
+                if (newWord !== null && newWord.trim() !== "") {
+                    processRpSync([...detected, newWord.trim()]);
+                }
+            };
+            keywordPills.appendChild(addPill);
+
+            const fixed = localStorage.getItem('globalContext') || "";
+            prompt.value = (fixed ? fixed + ", " : "") + detected.join(', ');
+            
+            if (detected.length > 0) generateImage();
+        }
+
+        function clearRp() { rpInput.value = ''; keywordPills.innerHTML = ''; }
+        function toggleRes() { resDrawer.classList.toggle('active'); settingsDrawer.classList.remove('active'); }
+        function toggleSettings() { settingsDrawer.classList.toggle('active'); resDrawer.classList.remove('active'); }
+        function setRes(w, h, btn) {
+            width.value = w; height.value = h;
+            document.querySelectorAll('.btn-preset').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            resDrawer.classList.remove('active');
+        }
+
         function savePromptToHistory(txt) {
-            if (!txt) return;
             let history = JSON.parse(localStorage.getItem('promptHistory') || '[]');
-            // Remove if exists to move to top
-            history = history.filter(p => p !== txt);
-            history.unshift(txt);
-            if (history.length > 20) history.pop();
+            history = [txt, ...history.filter(p => p !== txt)].slice(0, 10);
             localStorage.setItem('promptHistory', JSON.stringify(history));
         }
 
         function togglePromptHistory() {
-            if (!promptHistoryModal) promptHistoryModal = new bootstrap.Modal(get('promptHistoryModal'));
+            const modal = new bootstrap.Modal(get('promptHistoryModal'));
             const list = get('promptHistoryList');
             list.innerHTML = '';
             const history = JSON.parse(localStorage.getItem('promptHistory') || '[]');
-            
-            if (history.length === 0) {
-                list.innerHTML = '<div class="p-3 text-center text-muted small">No history yet</div>';
-            } else {
-                history.forEach(txt => {
-                    const item = document.createElement('button');
-                    item.className = "list-group-item list-group-item-action bg-dark text-light border-secondary small text-start text-truncate";
-                    item.textContent = txt;
-                    item.onclick = () => {
-                        prompt.value = txt;
-                        promptHistoryModal.hide();
-                    };
-                    list.appendChild(item);
-                });
-            }
-            promptHistoryModal.show();
-        }
-
-        function clearPromptHistory() {
-            if(confirm('Clear all prompt history?')) {
-                localStorage.removeItem('promptHistory');
-                togglePromptHistory(); // Refresh
-            }
-        }
-
-        function downloadImage() {
-            const a = document.createElement('a');
-            a.href = resultImg.src; a.download = `sd-${Date.now()}.png`; a.click();
-        }
-
-        // Init
-        // window.onload = () => {
-        //     // Register Service Worker for PWA
-        //     if ('serviceWorker' in navigator) {
-        //         navigator.serviceWorker.register('sw.js')
-        //             .then(reg => console.log('PWA: Service Worker Registered', reg))
-        //             .catch(err => console.error('PWA: Registration Failed', err));
-        //     }
-        // };
-
-        loadHistory();
-        const persistentFields = [apiUrl, prompt, steps, cfg, sampler, useProxy, batchCount, enableHires, upscaler, hrScale, hrSteps, hrDenoise, width, height, seed, globalContext, autoWatch];
-        
-        // Load saved values
-        persistentFields.forEach(f => {
-            if (!f) return;
-            const key = f.id;
-            const saved = localStorage.getItem(key);
-            if (saved !== null) {
-                if (f.type === 'checkbox') {
-                    f.checked = saved === 'true';
-                    if (f === autoWatch) toggleWatch(); // Trigger logic on load
-                }
-                else f.value = saved;
-            }
-            // Auto-save on change
-            f.addEventListener('change', () => {
-                const val = f.type === 'checkbox' ? f.checked : f.value;
-                localStorage.setItem(key, val);
-                if (f === enableHires) hiresControls.style.opacity = f.checked ? "1" : "0.5";
+            history.forEach(txt => {
+                const btn = document.createElement('button');
+                btn.className = "list-group-item list-group-item-action bg-dark text-light border-secondary small";
+                btn.textContent = txt;
+                btn.onclick = () => { prompt.value = txt; modal.hide(); };
+                list.appendChild(btn);
             });
-            // Also save on input (for text fields) to catch typing before blur
-            if (f.tagName === 'INPUT' || f.tagName === 'TEXTAREA') {
-                f.addEventListener('input', () => {
-                    localStorage.setItem(key, f.value);
-                });
-            }
-        });
-
-        // Auto-check connection if URL is present
-        if (apiUrl.value) {
-            checkConnection();
+            modal.show();
         }
 
-        // Ensure initial hires opacity
-        if (enableHires) hiresControls.style.opacity = enableHires.checked ? "1" : "0.5";
+        function clearPromptHistory() { localStorage.removeItem('promptHistory'); get('promptHistoryList').innerHTML = ''; }
+        function downloadImage() { const a = document.createElement('a'); a.href = resultImg.src; a.download = `art-${Date.now()}.png`; a.click(); }
+        enableHires.onchange = () => { hiresControls.style.opacity = enableHires.checked ? "1" : "0.5"; };
     </script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
