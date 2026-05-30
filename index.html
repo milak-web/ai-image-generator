@@ -634,13 +634,24 @@
 
         async function checkConnection() {
             let base = apiUrl.value.trim().replace(/\/$/, '');
-            if (!base) return;
+            if (!base) return false;
 
             const sdIndex = base.indexOf('/sdapi');
             if (sdIndex !== -1) base = base.substring(0, sdIndex);
             
             apiUrl.value = base;
             localStorage.setItem('apiUrl', base);
+
+            let parsedBase = null;
+            try { parsedBase = new URL(base); } catch (e) { parsedBase = null; }
+            const host = parsedBase ? (parsedBase.hostname || '').toLowerCase() : '';
+            const isLocalTarget = host === 'localhost' || host === '127.0.0.1' || host === '::1';
+            const port = parsedBase && parsedBase.port ? parsedBase.port : '7860';
+            if (isLocalTarget && !useDirect.checked) {
+                // Public proxy cannot access localhost; force direct mode for local endpoints.
+                useDirect.checked = true;
+                localStorage.setItem('useDirect', 'true');
+            }
             
             const testUrl = `${base}/sdapi/v1/options`;
             const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(testUrl)}`;
@@ -657,31 +668,43 @@
                         activeProxy = "";
                         connBadge.textContent = "DIRECT ONLINE";
                         connBadge.className = "badge-status bg-success";
-                        return;
+                        return true;
                     }
                     const body = await res.text();
                     if (isDeadGradioShareResponse(body)) {
                         connBadge.textContent = "LINK EXPIRED";
                         connBadge.className = "badge-status bg-danger";
                         alert("Your shared Gradio link is currently offline/expired (\"No interface is running\"). Start a new share session and paste the new URL.");
-                        return;
+                        return false;
+                    }
+                    if (res.status === 404 && isLocalTarget) {
+                        connBadge.textContent = "API OFF";
+                        connBadge.className = "badge-status bg-danger";
+                        alert(`Local server is running on port ${port}, but /sdapi/v1/options is missing.\n\nStart A1111 with --api (same port) so this app can connect.`);
+                        return false;
                     }
                 } catch (e) { console.warn("Direct fail"); }
             } else {
+                if (isLocalTarget) {
+                    connBadge.textContent = "DIRECT REQUIRED";
+                    connBadge.className = "badge-status bg-danger";
+                    alert("Localhost endpoints require Direct Mode. Proxy cannot access localhost.");
+                    return false;
+                }
                 try {
                     const res = await fetch(proxyUrl);
                     if (res.ok) {
                         activeProxy = "https://corsproxy.io/?";
                         connBadge.textContent = "PROXY ONLINE";
                         connBadge.className = "badge-status bg-success";
-                        return;
+                        return true;
                     }
                     const body = await res.text();
                     if (isDeadGradioShareResponse(body)) {
                         connBadge.textContent = "LINK EXPIRED";
                         connBadge.className = "badge-status bg-danger";
                         alert("Your shared Gradio link is currently offline/expired (\"No interface is running\"). Start a new share session and paste the new URL.");
-                        return;
+                        return false;
                     }
                 } catch (e) { console.warn("Proxy fail"); }
             }
@@ -689,6 +712,7 @@
             connBadge.textContent = useDirect.checked ? "CORS ERROR" : "OFFLINE";
             connBadge.className = "badge-status bg-danger";
             connHelp.classList.remove('d-none');
+            return false;
         }
 
         async function updateProgress() {
@@ -710,6 +734,8 @@
             const promptVal = prompt.value.trim();
             if (!promptVal) return alert('Prompt required');
             savePromptToHistory(promptVal);
+            const connected = await checkConnection();
+            if (!connected) return;
 
             const count = parseInt(batchCount.value) || 1;
             const userSeedRaw = parseInt(seed.value);
