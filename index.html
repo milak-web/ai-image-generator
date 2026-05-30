@@ -628,14 +628,19 @@
 
         async function checkConnection() {
             let base = apiUrl.value.trim().replace(/\/$/, '');
-            if (!base) return;
+            if (!base) return false;
 
             const sdIndex = base.indexOf('/sdapi');
             if (sdIndex !== -1) base = base.substring(0, sdIndex);
             
             apiUrl.value = base;
             localStorage.setItem('apiUrl', base);
-            
+
+            let parsedBase = null;
+            try { parsedBase = new URL(base); } catch (e) { parsedBase = null; }
+            const host = parsedBase ? (parsedBase.hostname || '').toLowerCase() : '';
+            const isLocalTarget = host === 'localhost' || host === '127.0.0.1' || host === '::1';
+             
             const testUrl = `${base}/sdapi/v1/options`;
             const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(testUrl)}`;
             
@@ -643,7 +648,15 @@
             connBadge.className = "badge-status bg-info";
             connHelp.classList.add('d-none');
 
-            // Respect selected mode to avoid noisy/pointless CORS errors in console.
+            // Localhost cannot be reached through public proxy from GitHub Pages.
+            if (!useDirect.checked && isLocalTarget) {
+                connBadge.textContent = "DIRECT REQUIRED";
+                connBadge.className = "badge-status bg-danger";
+                activeProxy = "";
+                alert("Localhost must use Direct Mode.");
+                return false;
+            }
+
             if (useDirect.checked) {
                 try {
                     const res = await fetch(testUrl, { method: 'GET', mode: 'cors' });
@@ -651,9 +664,23 @@
                         activeProxy = "";
                         connBadge.textContent = "DIRECT ONLINE";
                         connBadge.className = "badge-status bg-success";
-                        return;
+                        return true;
                     }
-                } catch (e) { console.warn("Direct fail"); }
+                    if (res.status === 404) {
+                        connBadge.textContent = "API MISSING";
+                        connBadge.className = "badge-status bg-danger";
+                        activeProxy = "";
+                        alert("Endpoint /sdapi/v1/options returned 404. Start A1111 with --api on this URL.");
+                        return false;
+                    }
+                } catch (e) {
+                    console.warn("Direct fail");
+                    connBadge.textContent = "CORS/OFFLINE";
+                    connBadge.className = "badge-status bg-danger";
+                    activeProxy = "";
+                    connHelp.classList.remove('d-none');
+                    return false;
+                }
             } else {
                 try {
                     const res = await fetch(proxyUrl);
@@ -661,14 +688,37 @@
                         activeProxy = "https://corsproxy.io/?";
                         connBadge.textContent = "PROXY ONLINE";
                         connBadge.className = "badge-status bg-success";
-                        return;
+                        return true;
                     }
-                } catch (e) { console.warn("Proxy fail"); }
+                    if (res.status === 403 || res.status === 429) {
+                        connBadge.textContent = "PROXY BLOCKED";
+                        connBadge.className = "badge-status bg-danger";
+                        activeProxy = "";
+                        alert("Proxy rejected the request (403/429). Use Direct Mode with CORS enabled on backend.");
+                        return false;
+                    }
+                    if (res.status === 404) {
+                        connBadge.textContent = "API MISSING";
+                        connBadge.className = "badge-status bg-danger";
+                        activeProxy = "";
+                        alert("Proxy reached the host, but /sdapi/v1/options returned 404. This share URL does not expose A1111 API.");
+                        return false;
+                    }
+                } catch (e) {
+                    console.warn("Proxy fail");
+                    connBadge.textContent = "PROXY OFFLINE";
+                    connBadge.className = "badge-status bg-danger";
+                    activeProxy = "";
+                    connHelp.classList.remove('d-none');
+                    return false;
+                }
             }
 
             connBadge.textContent = useDirect.checked ? "CORS ERROR" : "OFFLINE";
             connBadge.className = "badge-status bg-danger";
             connHelp.classList.remove('d-none');
+            activeProxy = "";
+            return false;
         }
 
         async function updateProgress() {
@@ -690,6 +740,8 @@
             const promptVal = promptInput.value.trim();
             if (!promptVal) return alert('Prompt required');
             savePromptToHistory(promptVal);
+            const connected = await checkConnection();
+            if (!connected) return;
 
             const count = parseInt(batchCount.value) || 1;
             const userSeedRaw = parseInt(seed.value);
