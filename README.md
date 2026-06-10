@@ -1,34 +1,57 @@
-# 🖌️ PixelForge Pro
+# PixelForge Pro
 
-PixelForge Pro is a professional-grade web interface designed for **Stable Diffusion** creators. It provides a sophisticated, high-performance workspace for building prompts, managing models, and generating high-quality AI art with precision.
+PixelForge Pro is a web UI for Stable Diffusion backends such as Automatic1111 and compatible `sdapi` servers.
 
-🚀 **[Launch App](https://milak-web.github.io/ai-image-generator/)**
+[Launch App](https://milak-web.github.io/ai-image-generator/)
 
----
+## Features
 
-## ✨ Professional Features
+- Prompt-first interface with mobile-friendly layout
+- Stable Diffusion txt2img generation
+- History strip and prompt history
+- RP automation tools
+- Hires fix controls
 
-- **🎭 Advanced Layer System**: Build complex, nuanced prompts using a multi-layer architecture. Perfect for fine-tuning styles, characters, and environments separately.
-- **📦 Comprehensive Model Control**: Full support for Stable Diffusion checkpoints, samplers, and VAE settings. Switch between models and configurations instantly.
-- **📱 Professional Mobile Studio**: A fully responsive, touch-optimized UI that brings the power of a desktop AI studio to your mobile device.
-- **⚡ Performance-First Architecture**: Optimized for speed with persistent state management, ensuring your workspace and history are always ready when you are.
-- **🎨 Modern Creative Interface**: A clean, distraction-free Dark/Light theme designed for long creative sessions.
-- **🛠️ Integrated Hires. Fix**: Advanced upscaling and denoising controls built directly into the generation workflow.
+## Connection Modes
 
----
+The app now supports two reliable routes:
 
-## 🚀 Getting Started
+1. Direct Mode
+Use this for public endpoints that already expose the Stable Diffusion API and allow CORS from `https://milak-web.github.io`.
 
-1.  **Connect**: Paste your Stable Diffusion API or Gradio endpoint URL.
-2.  **Sync**: Link your workspace to the backend.
-3.  **Create**: Build your layers and generate your vision.
+2. Local Bridge Mode
+Use this for localhost, LAN targets, and public endpoints that block browser CORS.
 
----
+## Using The Local Bridge
 
-## 📜 License
+1. Start your Stable Diffusion backend normally.
+2. Run [Start Local Bridge.cmd](<C:\Users\MK2\Desktop\PRO\ai-image-generator\Start Local Bridge.cmd>).
+3. Open the app.
+4. Paste your backend URL.
+5. Leave `Direct Mode` turned off.
 
-This project is licensed under the **MIT License**.
+The bridge listens on `http://127.0.0.1:8000` and proxies requests from the GitHub Pages app to your chosen backend URL.
 
----
+Examples:
 
-*Empowering the next generation of AI artists.*
+- `http://127.0.0.1:7860`
+- `http://192.168.1.25:7860`
+- `https://your-public-link.example.com`
+
+## Automatic1111 Notes
+
+Make sure your backend exposes the API:
+
+```bat
+--api
+```
+
+If you want browser-direct mode from GitHub Pages, also allow your site origin:
+
+```bat
+--cors-allow-origins https://milak-web.github.io
+```
+
+## License
+
+MIT

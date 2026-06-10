@@ -377,12 +377,13 @@
                     <input type="text" id="apiUrl" class="form-control" placeholder="Paste your SD API or Gradio link here...">
                     <button class="btn btn-outline-info" onclick="checkConnection()"><i class="fas fa-sync-alt"></i></button>
                 </div>
-                <!-- HELP TEXT FOR 504/CORS -->
+                <!-- HELP TEXT FOR RELAY/CORS -->
                 <div id="connHelp" class="mt-2 small text-muted d-none" style="font-size: 0.7rem; line-height: 1.2;">
                     <div class="p-2 border border-warning rounded bg-dark-subtle">
                         <b class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i> Connection Issue:</b><br>
-                        - <b>504 Timeout?</b> Proxy limit reached. Use <b>Direct Mode</b> or reduce resolution.<br>
-                        - <b>CORS Error?</b> Add <code>--cors-allow-origins *</code> to your SD startup.
+                        - <b>Local or LAN target?</b> Turn <b>Direct Mode</b> off and run <code>Start Local Bridge.cmd</code>.<br>
+                        - <b>Public target?</b> Use <b>Direct Mode</b> if the server already allows CORS.<br>
+                        - <b>CORS Error?</b> Start A1111 with <code>--api --cors-allow-origins https://milak-web.github.io</code>.
                     </div>
                 </div>
             </div>
@@ -600,12 +601,14 @@
               progressBar = get('progressBar');
 
         let isGenerating = false;
-        let activeProxy = "https://corsproxy.io/?"; 
+        let activeProxy = "";
+        let activeTransport = "direct";
         let isRpMode = false;
         let lastClipboardText = "";
         let watchInterval = null;
         let customDict = JSON.parse(localStorage.getItem('rpDictionary') || '{}');
         let progressTimer = null;
+        const relayBase = localStorage.getItem('relayBase') || 'http://127.0.0.1:8000';
 
         window.onload = () => {
             if (localStorage.getItem('useDirect') === 'true') useDirect.checked = true;
@@ -626,6 +629,31 @@
             checkConnection();
         }
 
+        function isPrivateNetworkHost(host) {
+            if (!host) return false;
+            if (host === 'localhost' || host === '127.0.0.1' || host === '::1') return true;
+            if (host.endsWith('.local')) return true;
+            if (host.startsWith('10.')) return true;
+            if (host.startsWith('192.168.')) return true;
+            const match = host.match(/^172\.(\d{1,3})\./);
+            if (match) {
+                const octet = parseInt(match[1], 10);
+                if (octet >= 16 && octet <= 31) return true;
+            }
+            return false;
+        }
+
+        function buildRelayUrl(targetUrl) {
+            return `${relayBase}/proxy?target=${encodeURIComponent(targetUrl)}`;
+        }
+
+        function setConnectionState(label, className, transport, proxyPrefix = "") {
+            connBadge.textContent = label;
+            connBadge.className = `badge-status ${className}`;
+            activeTransport = transport;
+            activeProxy = proxyPrefix;
+        }
+
         async function checkConnection() {
             let base = apiUrl.value.trim().replace(/\/$/, '');
             if (!base) return false;
@@ -639,85 +667,79 @@
             let parsedBase = null;
             try { parsedBase = new URL(base); } catch (e) { parsedBase = null; }
             const host = parsedBase ? (parsedBase.hostname || '').toLowerCase() : '';
-            const isLocalTarget = host === 'localhost' || host === '127.0.0.1' || host === '::1';
-             
+            const isPrivateTarget = isPrivateNetworkHost(host);
             const testUrl = `${base}/sdapi/v1/options`;
-            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(testUrl)}`;
-            
+            const relayUrl = buildRelayUrl(testUrl);
+             
             connBadge.textContent = "TESTING...";
             connBadge.className = "badge-status bg-info";
             connHelp.classList.add('d-none');
-
-            // Localhost cannot be reached through public proxy from GitHub Pages.
-            if (!useDirect.checked && isLocalTarget) {
-                connBadge.textContent = "DIRECT REQUIRED";
-                connBadge.className = "badge-status bg-danger";
-                activeProxy = "";
-                alert("Localhost must use Direct Mode.");
-                return false;
-            }
+            activeProxy = "";
+            activeTransport = "direct";
 
             if (useDirect.checked) {
                 try {
                     const res = await fetch(testUrl, { method: 'GET', mode: 'cors' });
                     if (res.ok) {
-                        activeProxy = "";
-                        connBadge.textContent = "DIRECT ONLINE";
-                        connBadge.className = "badge-status bg-success";
+                        setConnectionState("DIRECT ONLINE", "bg-success", "direct");
                         return true;
                     }
                     if (res.status === 404) {
-                        connBadge.textContent = "API MISSING";
-                        connBadge.className = "badge-status bg-danger";
-                        activeProxy = "";
+                        setConnectionState("API MISSING", "bg-danger", "direct");
                         alert("Endpoint /sdapi/v1/options returned 404. Start A1111 with --api on this URL.");
                         return false;
                     }
                 } catch (e) {
                     console.warn("Direct fail");
-                    connBadge.textContent = "CORS/OFFLINE";
-                    connBadge.className = "badge-status bg-danger";
-                    activeProxy = "";
+                    setConnectionState(isPrivateTarget ? "DIRECT BLOCKED" : "CORS/OFFLINE", "bg-danger", "direct");
                     connHelp.classList.remove('d-none');
                     return false;
                 }
             } else {
                 try {
-                    const res = await fetch(proxyUrl);
+                    const res = await fetch(relayUrl);
                     if (res.ok) {
-                        activeProxy = "https://corsproxy.io/?";
-                        connBadge.textContent = "PROXY ONLINE";
-                        connBadge.className = "badge-status bg-success";
+                        setConnectionState("RELAY ONLINE", "bg-success", "relay", `${relayBase}/proxy?target=`);
                         return true;
                     }
-                    if (res.status === 403 || res.status === 429) {
-                        connBadge.textContent = "PROXY BLOCKED";
-                        connBadge.className = "badge-status bg-danger";
-                        activeProxy = "";
-                        alert("Proxy rejected the request (403/429). Use Direct Mode with CORS enabled on backend.");
+                    if (res.status === 404) {
+                        setConnectionState("API MISSING", "bg-danger", "relay");
+                        alert("Relay reached the host, but /sdapi/v1/options returned 404. This target is not exposing the Stable Diffusion API.");
                         return false;
                     }
-                    if (res.status === 404) {
-                        connBadge.textContent = "API MISSING";
-                        connBadge.className = "badge-status bg-danger";
-                        activeProxy = "";
-                        alert("Proxy reached the host, but /sdapi/v1/options returned 404. This share URL does not expose A1111 API.");
+                    if (res.status === 502 || res.status === 504) {
+                        setConnectionState("TARGET OFFLINE", "bg-danger", "relay");
+                        alert("Local relay is running, but it could not reach the Stable Diffusion target URL.");
                         return false;
                     }
                 } catch (e) {
-                    console.warn("Proxy fail");
-                    connBadge.textContent = "PROXY OFFLINE";
-                    connBadge.className = "badge-status bg-danger";
-                    activeProxy = "";
-                    connHelp.classList.remove('d-none');
-                    return false;
+                    console.warn("Relay fail");
                 }
+
+                if (!isPrivateTarget) {
+                    try {
+                        const res = await fetch(testUrl, { method: 'GET', mode: 'cors' });
+                        if (res.ok) {
+                            setConnectionState("PUBLIC DIRECT", "bg-success", "direct");
+                            return true;
+                        }
+                        if (res.status === 404) {
+                            setConnectionState("API MISSING", "bg-danger", "direct");
+                            alert("Public target is online, but /sdapi/v1/options returned 404.");
+                            return false;
+                        }
+                    } catch (e) {
+                        console.warn("Public direct fallback fail");
+                    }
+                }
+
+                setConnectionState("RELAY OFFLINE", "bg-danger", "relay");
+                connHelp.classList.remove('d-none');
+                return false;
             }
 
-            connBadge.textContent = useDirect.checked ? "CORS ERROR" : "OFFLINE";
-            connBadge.className = "badge-status bg-danger";
+            setConnectionState(useDirect.checked ? "CORS ERROR" : "OFFLINE", "bg-danger", "direct");
             connHelp.classList.remove('d-none');
-            activeProxy = "";
             return false;
         }
 
@@ -777,48 +799,23 @@
                         denoising_strength: parseFloat(hrDenoise.value)
                     };
 
-                    // Retry ladder in proxy mode only, without touching UI/features.
-                    const proxyAttempts = activeProxy ? [
-                        { jpeg_quality: 70, steps: parseInt(steps.value), hires: enableHires.checked },
-                        { jpeg_quality: 55, steps: Math.max(12, parseInt(steps.value) - 8), hires: false },
-                        { jpeg_quality: 45, steps: Math.max(8, parseInt(steps.value) - 12), hires: false }
-                    ] : [{ jpeg_quality: null, steps: parseInt(steps.value), hires: enableHires.checked }];
-
                     let response = null;
                     let lastStatus = null;
 
                     try {
-                        for (let attemptIdx = 0; attemptIdx < proxyAttempts.length; attemptIdx++) {
-                            const attempt = proxyAttempts[attemptIdx];
-                            const attemptPayload = { ...payload };
-                            attemptPayload.steps = attempt.steps;
-                            attemptPayload.enable_hr = attempt.hires;
-
-                            if (activeProxy) {
-                                // Reduce returned payload size through JPEG + lower quality on retries.
-                                attemptPayload.override_settings = {
-                                    samples_format: "jpeg",
-                                    jpeg_quality: attempt.jpeg_quality
-                                };
-                            }
-
-                            const finalUrl = activeProxy ? `${activeProxy}${encodeURIComponent(targetUrl)}` : targetUrl;
-                            response = await fetch(finalUrl, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify(attemptPayload)
-                            });
-
-                            if (response.ok) break;
-                            lastStatus = response.status;
-                            if (!activeProxy || (response.status !== 413 && response.status !== 504)) break;
-                        }
+                        const finalUrl = activeProxy ? `${activeProxy}${encodeURIComponent(targetUrl)}` : targetUrl;
+                        response = await fetch(finalUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        lastStatus = response.status;
 
                         if (!response || !response.ok) {
                             if (lastStatus === 504) {
-                                lastErrorMessage = "TIMEOUT (504): Proxy timed out. For high-quality jobs, enable Direct Mode with --cors-allow-origins *.";
-                            } else if (lastStatus === 413) {
-                                lastErrorMessage = "PAYLOAD TOO LARGE (413): Proxy rejected image payload. App retried with smaller proxy-safe settings but server response is still too large. Direct Mode is required for full-quality output.";
+                                lastErrorMessage = "TIMEOUT (504): The target server did not finish the image request in time.";
+                            } else if (lastStatus === 502) {
+                                lastErrorMessage = "TARGET OFFLINE (502): The relay could not reach the Stable Diffusion backend.";
                             } else {
                                 lastErrorMessage = `HTTP error ${lastStatus || (response && response.status)}`;
                             }
