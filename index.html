@@ -306,8 +306,21 @@
             padding: 12px;
             margin-top: 10px;
             display: none;
-            max-height: 300px;
+            max-height: 360px;
             overflow-y: auto;
+        }
+
+        .dict-editor {
+            background: rgba(255,255,255,0.03);
+            border-radius: 10px;
+            padding: 10px;
+        }
+
+        .dict-keyword-input {
+            min-height: 120px;
+            resize: vertical;
+            line-height: 1.45;
+            color: #f5d0fe;
         }
 
         .dict-item {
@@ -434,10 +447,12 @@
                 <div id="keywordPills" class="d-flex flex-wrap" style="min-height: 96px; max-height: 180px; overflow-y: auto; align-content: flex-start;"></div>
 
                 <div id="dictPanel" class="dict-panel">
-                    <div class="d-flex gap-2 mb-2">
-                        <input type="text" id="triggerIn" class="form-control form-control-sm" placeholder="Trigger (e.g. 'sky')">
-                        <input type="text" id="keywordIn" class="form-control form-control-sm" placeholder="AI Keyword">
-                        <button class="btn btn-sm btn-info" onclick="addTrigger()"><i class="fas fa-plus"></i></button>
+                    <div class="dict-editor mb-2">
+                        <input type="text" id="triggerIn" class="form-control form-control-sm mb-2" placeholder="Trigger (e.g. 'sky')">
+                        <textarea id="keywordIn" class="form-control form-control-sm dict-keyword-input mb-2" rows="4" placeholder="Keyword / output description"></textarea>
+                        <div class="d-flex justify-content-end">
+                            <button class="btn btn-sm btn-info" onclick="addTrigger()"><i class="fas fa-plus"></i></button>
+                        </div>
                     </div>
                     <div id="dictList"></div>
                 </div>
@@ -1101,22 +1116,6 @@
                 };
                 keywordPills.appendChild(span);
             });
-
-            // Add manual pill
-            const addPill = document.createElement('span');
-            addPill.className = 'keyword-pill';
-            addPill.style.background = 'rgba(255, 255, 255, 0.1)';
-            addPill.style.borderStyle = 'dashed';
-            addPill.style.cursor = 'pointer';
-            addPill.innerHTML = `<i class="fas fa-plus me-1"></i> Add`;
-            addPill.onclick = () => {
-                const newWord = window.prompt("Add manual keyword:");
-                if (newWord !== null && newWord.trim() !== "") {
-                    processRpSync([...detected, newWord.trim()]);
-                }
-            };
-            keywordPills.appendChild(addPill);
-
             const fixed = localStorage.getItem('globalContext') || "";
             promptInput.value = (fixed ? fixed + ", " : "") + detected.join(', ');
             
