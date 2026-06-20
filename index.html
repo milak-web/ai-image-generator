@@ -600,75 +600,160 @@
               progressBar = get('progressBar');
 
         let isGenerating = false;
-        let activeProxy = "https://corsproxy.io/?"; 
+        let activeProxy = "";
+        let currentProxyIndex = 0;
+        let isApiConnected = false;
+        const PROXIES = [
+            "https://corsproxy.io/?",
+            "https://api.allorigins.win/raw?url=",
+            "https://thingproxy.freeboard.io/fetch/"
+        ];
         let isRpMode = false;
         let lastClipboardText = "";
         let watchInterval = null;
         let customDict = JSON.parse(localStorage.getItem('rpDictionary') || '{}');
         let progressTimer = null;
-
         window.onload = () => {
             if (localStorage.getItem('useDirect') === 'true') useDirect.checked = true;
             if (localStorage.getItem('apiUrl')) apiUrl.value = localStorage.getItem('apiUrl');
             if (globalContext) globalContext.value = localStorage.getItem('globalContext') || '';
             loadHistory();
             checkConnection();
-
             // Restore sensor state
             if (localStorage.getItem('autoWatch') === 'true') {
                 autoWatch.checked = true;
                 setTimeout(toggleWatch, 500);
             }
         };
-
         function toggleDirect() {
             localStorage.setItem('useDirect', useDirect.checked);
+            isApiConnected = false;
             checkConnection();
         }
-
+        function parseUrlSafe(rawUrl) {
+            try {
+                return new URL(rawUrl);
+            } catch (e) {
+                return null;
+            }
+        }
+        function isLoopbackHost(hostname) {
+            if (!hostname) return false;
+            const h = hostname.toLowerCase();
+            return h === 'localhost' || h === '::1' || h.startsWith('127.');
+        }
+        function isPrivateIPv4(hostname) {
+            if (!hostname) return false;
+            const parts = hostname.split('.');
+            if (parts.length !== 4) return false;
+            const nums = parts.map(n => Number(n));
+            if (nums.some(n => Number.isNaN(n) || n < 0 || n > 255)) return false;
+            if (nums[0] === 10) return true;
+            if (nums[0] === 192 && nums[1] === 168) return true;
+            if (nums[0] === 172 && nums[1] >= 16 && nums[1] <= 31) return true;
+            if (nums[0] === 169 && nums[1] === 254) return true;
+            return false;
+        }
+        function isPrivateTarget(rawUrl) {
+            const parsed = parseUrlSafe(rawUrl);
+            if (!parsed) return false;
+            const host = parsed.hostname.toLowerCase();
+            return isLoopbackHost(host) || isPrivateIPv4(host) || host.endsWith('.local');
+        }
+        function localAwareFetch(rawUrl, options = {}) {
+            const opts = { ...options };
+            const parsed = parseUrlSafe(rawUrl);
+            const isLoopback = parsed ? isLoopbackHost(parsed.hostname) : false;
+            if (isPrivateTarget(rawUrl) && !isLoopback && opts.targetAddressSpace === undefined) {
+                opts.targetAddressSpace = "local";
+            }
+            return fetch(rawUrl, opts);
+        }
         async function checkConnection() {
             let base = apiUrl.value.trim().replace(/\/$/, '');
-            if (!base) return;
-
+            if (!base) {
+                isApiConnected = false;
+                return false;
+            }
             const sdIndex = base.indexOf('/sdapi');
             if (sdIndex !== -1) base = base.substring(0, sdIndex);
-            
             apiUrl.value = base;
             localStorage.setItem('apiUrl', base);
-            
+            const parsedBase = parseUrlSafe(base);
+            const isPrivateBase = isPrivateTarget(base);
+            const isLoopbackBase = parsedBase ? isLoopbackHost(parsedBase.hostname) : false;
+            const targetPort = parsedBase && parsedBase.port ? parsedBase.port : '7860';
             const testUrl = `${base}/sdapi/v1/options`;
-            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(testUrl)}`;
-            
-            connBadge.textContent = "TESTING...";
-            connBadge.className = "badge-status bg-info";
+            connBadge.textContent = 'TESTING...';
+            connBadge.className = 'badge-status bg-info';
             connHelp.classList.add('d-none');
-
-            // Respect selected mode to avoid noisy/pointless CORS errors in console.
+            isApiConnected = false;
+            activeProxy = '';
+            let directError = null;
+            try {
+                const res = await localAwareFetch(testUrl, { method: 'GET', mode: 'cors' });
+                if (res.ok) {
+                    activeProxy = '';
+                    isApiConnected = true;
+                    connBadge.textContent = 'DIRECT ONLINE';
+                    connBadge.className = 'badge-status bg-success';
+                    return true;
+                }
+                if (res.status === 404) {
+                    connBadge.textContent = 'API MISSING';
+                    connBadge.className = 'badge-status bg-danger';
+                    alert('This target responded, but /sdapi/v1/options returned 404. It is not exposing the Stable Diffusion API.');
+                    return false;
+                }
+                directError = new Error(`Direct status ${res.status}`);
+            } catch (e) {
+                directError = e;
+                console.warn('Direct connection failed', e);
+            }
             if (useDirect.checked) {
+                connBadge.textContent = 'CORS/OFFLINE';
+                connBadge.className = 'badge-status bg-danger';
+                connHelp.classList.remove('d-none');
+                return false;
+            }
+            if (isPrivateBase) {
+                connBadge.textContent = 'LOCAL BLOCKED';
+                connBadge.className = 'badge-status bg-danger';
+                connHelp.classList.remove('d-none');
+                if (isLoopbackBase) {
+                    alert(
+                        'Localhost rejected the browser request or is not reachable.\n\n' +
+                        'Start your SD backend with:\n' +
+                        `--api --listen --port ${targetPort} --cors-allow-origins=https://milak-web.github.io\n\n` +
+                        'Then try Direct Mode again.'
+                    );
+                } else {
+                    alert('This local/LAN target is private-network only. Public proxy fallback is skipped for private addresses. Enable CORS on the backend and try Direct Mode.');
+                }
+                return false;
+            }
+            for (let i = 0; i < PROXIES.length; i++) {
+                const proxy = PROXIES[i];
                 try {
-                    const res = await fetch(testUrl, { method: 'GET', mode: 'cors' });
+                    const res = await fetch(proxy + encodeURIComponent(testUrl));
                     if (res.ok) {
-                        activeProxy = "";
-                        connBadge.textContent = "DIRECT ONLINE";
-                        connBadge.className = "badge-status bg-success";
-                        return;
+                        activeProxy = proxy;
+                        currentProxyIndex = i;
+                        isApiConnected = true;
+                        connBadge.textContent = `PROXY ONLINE ${i + 1}`;
+                        connBadge.className = 'badge-status bg-success';
+                        return true;
                     }
-                } catch (e) { console.warn("Direct fail"); }
-            } else {
-                try {
-                    const res = await fetch(proxyUrl);
-                    if (res.ok) {
-                        activeProxy = "https://corsproxy.io/?";
-                        connBadge.textContent = "PROXY ONLINE";
-                        connBadge.className = "badge-status bg-success";
-                        return;
-                    }
-                } catch (e) { console.warn("Proxy fail"); }
+                } catch (e) {
+                    console.warn(`Proxy ${i + 1} failed`, e);
+                }
             }
 
-            connBadge.textContent = useDirect.checked ? "CORS ERROR" : "OFFLINE";
-            connBadge.className = "badge-status bg-danger";
+            console.error("Connection check failed:", directError);
+            connBadge.textContent = 'OFFLINE';
+            connBadge.className = 'badge-status bg-danger';
             connHelp.classList.remove('d-none');
+            return false;
         }
 
         async function updateProgress() {
@@ -677,7 +762,7 @@
             const finalUrl = activeProxy ? `${activeProxy}${encodeURIComponent(progressUrl)}` : progressUrl;
 
             try {
-                const res = await fetch(finalUrl);
+                const res = await localAwareFetch(finalUrl);
                 if (res.ok) {
                     const data = await res.json();
                     progressBar.style.width = `${Math.round(data.progress * 100)}%`;
@@ -685,11 +770,17 @@
             } catch (e) { }
         }
 
+
         async function generateImage() {
             if (isGenerating) return;
             const promptVal = promptInput.value.trim();
             if (!promptVal) return alert('Prompt required');
             savePromptToHistory(promptVal);
+
+            if (!isApiConnected) {
+                const connected = await checkConnection();
+                if (!connected) return;
+            }
 
             const count = parseInt(batchCount.value) || 1;
             const userSeedRaw = parseInt(seed.value);
@@ -751,7 +842,7 @@
                             }
 
                             const finalUrl = activeProxy ? `${activeProxy}${encodeURIComponent(targetUrl)}` : targetUrl;
-                            response = await fetch(finalUrl, {
+                            response = await localAwareFetch(finalUrl, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify(attemptPayload)
