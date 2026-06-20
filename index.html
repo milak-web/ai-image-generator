@@ -641,6 +641,20 @@
         let lastClipboardText = "";
         let watchInterval = null;
         let customDict = JSON.parse(localStorage.getItem('rpDictionary') || '{}');
+        function normalizeKeywordList(value) {
+            if (Array.isArray(value)) {
+                return [...new Set(value.map(v => String(v).trim()).filter(Boolean))];
+            }
+            const single = String(value || '').trim();
+            return single ? [single] : [];
+        }
+        function saveCustomDict() {
+            localStorage.setItem('rpDictionary', JSON.stringify(customDict));
+        }
+        customDict = Object.fromEntries(
+            Object.entries(customDict).map(([trigger, keywords]) => [trigger, normalizeKeywordList(keywords)])
+        );
+        saveCustomDict();
         let progressTimer = null;
         window.onload = () => {
             if (localStorage.getItem('useDirect') === 'true') useDirect.checked = true;
@@ -995,20 +1009,31 @@
         function toggleDict() { dictPanel.style.display = dictPanel.style.display === 'block' ? 'none' : 'block'; renderDict(); }
         function addTrigger() {
             const t = triggerIn.value.trim().toLowerCase();
-            const k = keywordIn.value.trim();
-            if (t && k) { customDict[t] = k; localStorage.setItem('rpDictionary', JSON.stringify(customDict)); renderDict(); }
+            const entries = keywordIn.value
+                .split(/\r?\n/)
+                .map(v => v.trim())
+                .filter(Boolean);
+            if (!t || entries.length === 0) return;
+
+            const existing = normalizeKeywordList(customDict[t]);
+            customDict[t] = [...new Set([...existing, ...entries])];
+            saveCustomDict();
+            renderDict();
+            keywordIn.value = '';
+            triggerIn.focus();
         }
         function renderDict() {
             dictList.innerHTML = '';
             Object.entries(customDict).forEach(([t, k]) => {
                 const item = document.createElement('div');
                 item.className = 'dict-item';
+                const keywords = normalizeKeywordList(k);
                 // URL encode the trigger for safe function calls
                 const encodedT = encodeURIComponent(t);
                 item.innerHTML = `
                     <div class="d-flex flex-column flex-grow-1 overflow-hidden me-2">
                         <span class="dict-trigger-text">${t}</span>
-                        <span class="dict-keyword-text mt-1">${k}</span>
+                        <span class="dict-keyword-text mt-1">${keywords.join(' • ')}</span>
                     </div>
                     <div class="d-flex gap-1">
                         <button class="btn btn-sm btn-link text-info p-0" onclick="editTrigger('${encodedT}')"><i class="fas fa-edit"></i></button>
@@ -1021,11 +1046,11 @@
 
         function editTrigger(t) {
             const decodedT = decodeURIComponent(t);
-            const k = customDict[decodedT];
+            const keywords = normalizeKeywordList(customDict[decodedT]);
             triggerIn.value = decodedT;
-            keywordIn.value = k;
+            keywordIn.value = keywords.join('\n');
             delete customDict[decodedT];
-            localStorage.setItem('rpDictionary', JSON.stringify(customDict));
+            saveCustomDict();
             renderDict();
             triggerIn.focus();
         }
@@ -1034,7 +1059,7 @@
             const decodedT = decodeURIComponent(t);
             if (confirm(`Delete rule for: ${decodedT}?`)) {
                 delete customDict[decodedT];
-                localStorage.setItem('rpDictionary', JSON.stringify(customDict));
+                saveCustomDict();
                 renderDict();
             }
         }
@@ -1088,7 +1113,7 @@
                 detected = customResult;
             } else {
                 Object.entries(customDict).forEach(([t, k]) => {
-                    if (text.includes(t)) detected.push(k);
+                    if (text.includes(t)) detected.push(...normalizeKeywordList(k));
                 });
             }
             
