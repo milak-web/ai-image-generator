@@ -865,14 +865,21 @@
             if (localStorage.getItem('apiUrl')) apiUrl.value = localStorage.getItem('apiUrl');
             if (globalContext) globalContext.value = localStorage.getItem('globalContext') || '';
             loadHistory();
-            checkConnection();
-            renderDict(); // Ensure keywords are visible on load
-            // Restore sensor state
-            if (localStorage.getItem('autoWatch') === 'true') {
+            
+            // Automation Sensor Initialization
+            const savedWatch = localStorage.getItem('autoWatch');
+            if (savedWatch === null || savedWatch === 'true') {
+                localStorage.setItem('autoWatch', 'true');
                 autoWatch.checked = true;
-                setTimeout(toggleWatch, 500);
+                toggleWatch();
+            } else {
+                autoWatch.checked = false;
             }
+            
+            renderDict();
+            checkConnection();
         };
+
         function toggleDirect() {
             localStorage.setItem('useDirect', useDirect.checked);
             isApiConnected = false;
