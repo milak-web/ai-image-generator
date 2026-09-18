@@ -806,6 +806,7 @@
         ];
         let isRpMode = false;
         let lastClipboardText = "";
+        let lastProcessedText = "";
         let watchInterval = null;
         let customDict = JSON.parse(localStorage.getItem('rpDictionary') || '{}');
         
@@ -1500,23 +1501,15 @@
                 syncFromClipboard();
                 
                 if (watchInterval) clearInterval(watchInterval);
-                watchInterval = setInterval(syncFromClipboard, 200); 
+                watchInterval = setInterval(syncFromClipboard, 150); // Faster polling
                 
                 window.addEventListener('focus', syncFromClipboard);
-                // Reset last text on blur so refocusing always re-checks even if same text
-                window.addEventListener('blur', clearLastClip);
             } else {
                 localStorage.setItem('autoWatch', 'false');
                 clearInterval(watchInterval);
                 window.removeEventListener('focus', syncFromClipboard);
-                window.removeEventListener('blur', clearLastClip);
                 console.log("Automation Sensor: OFFLINE");
             }
-        }
-
-        function clearLastClip() {
-            lastClipboardText = ""; 
-            console.log("Clipboard cache cleared (window blurred)");
         }
 
         async function syncFromClipboard() {
@@ -1525,35 +1518,37 @@
             try {
                 const text = await navigator.clipboard.readText();
                 
+                // If text is new to the sync engine
                 if (text && text !== lastClipboardText) {
-                    console.log("Automation Sync: New text detected");
                     lastClipboardText = text;
                     
-                    // Update Roleplay Section
+                    // Update UI immediately
                     rpInput.value = text;
-                    rpInput.classList.add('is-valid');
-                    setTimeout(() => rpInput.classList.remove('is-valid'), 1000);
                     rpInput.dispatchEvent(new Event('input', { bubbles: true }));
 
-                    // Trigger detection
+                    // Extract keywords immediately
                     const detected = processRpSync();
                     
-                    // Visual feedback
-                    rpToggleBtn.classList.add('btn-pulse-cyan');
-                    setTimeout(() => rpToggleBtn.classList.remove('btn-pulse-cyan'), 500);
+                    // ONLY trigger generation if this EXACT text hasn't been generated yet
+                    if (detected && detected.length > 0 && text !== lastProcessedText) {
+                        console.log("SUPERFAST: Keyword detected, triggering generation!");
+                        lastProcessedText = text; // Mark this specific clipboard content as processed
+                        
+                        // Visual feedback
+                        rpInput.classList.add('is-valid');
+                        rpToggleBtn.classList.add('btn-pulse-cyan');
+                        setTimeout(() => {
+                            rpInput.classList.remove('is-valid');
+                            rpToggleBtn.classList.remove('btn-pulse-cyan');
+                        }, 500);
 
-                    // If keywords found, trigger generation IMMEDIATELY
-                    if (detected && detected.length > 0) {
-                        console.log("SUPERFAST: Keyword found, triggering generation!");
+                        // Start generation immediately
                         if (isGenerating) isGenerating = false;
                         generateImage();
                     }
                 }
             } catch (e) {
-                // NotAllowedError is common when tab isn't focused, so we don't spam console
-                if (e.name !== 'NotAllowedError') {
-                    console.warn("Sync Error:", e.message);
-                }
+                // NotAllowedError is common when tab isn't focused
             }
         }
 
