@@ -460,6 +460,18 @@
             cursor: pointer;
             flex-shrink: 0;
         }
+
+        @keyframes pulse-cyan {
+            0% { box-shadow: 0 0 0 0 rgba(13, 202, 240, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(13, 202, 240, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(13, 202, 240, 0); }
+        }
+
+        .btn-pulse-cyan {
+            animation: pulse-cyan 1s infinite;
+            border-color: #0dcaf0 !important;
+            color: #0dcaf0 !important;
+        }
     </style>
 </head>
 <body>
@@ -781,6 +793,7 @@
               loraList = get('loraList');
 
         let isGenerating = false;
+        let isQueued = false;
         let activeProxy = "";
         let currentProxyIndex = 0;
         let isApiConnected = false;
@@ -1092,7 +1105,11 @@
 
 
         async function generateImage() {
-            if (isGenerating) return;
+            if (isGenerating) {
+                isQueued = true;
+                return;
+            }
+            
             const promptVal = promptInput.value.trim();
             if (!promptVal) return alert('Prompt required');
             savePromptToHistory(promptVal);
@@ -1109,6 +1126,7 @@
             const targetUrl = base.includes('/sdapi/v1/') ? base : `${base}/sdapi/v1/txt2img`;
 
             isGenerating = true;
+            isQueued = false;
             loader.style.display = 'flex';
             progressBar.style.width = '0%';
             placeholder.classList.add('d-none');
@@ -1120,7 +1138,6 @@
 
             try {
                 for (let i = 0; i < count; i++) {
-                    // Always vary seed for batched images to avoid duplicates.
                     const currentSeed = userSeed < 0
                         ? Math.floor(Math.random() * 2147483647)
                         : userSeed + i;
@@ -1136,7 +1153,6 @@
                         denoising_strength: parseFloat(hrDenoise.value)
                     };
 
-                    // Retry ladder in proxy mode only, without touching UI/features.
                     const proxyAttempts = activeProxy ? [
                         { jpeg_quality: 70, steps: parseInt(steps.value), hires: enableHires.checked },
                         { jpeg_quality: 55, steps: Math.max(12, parseInt(steps.value) - 8), hires: false },
@@ -1154,7 +1170,6 @@
                             attemptPayload.enable_hr = attempt.hires;
 
                             if (activeProxy) {
-                                // Reduce returned payload size through JPEG + lower quality on retries.
                                 attemptPayload.override_settings = {
                                     samples_format: "jpeg",
                                     jpeg_quality: attempt.jpeg_quality
@@ -1175,9 +1190,9 @@
 
                         if (!response || !response.ok) {
                             if (lastStatus === 504) {
-                                lastErrorMessage = "TIMEOUT (504): Proxy timed out. For high-quality jobs, enable Direct Mode with --cors-allow-origins *.";
+                                lastErrorMessage = "TIMEOUT (504): Proxy timed out. Use Direct Mode.";
                             } else if (lastStatus === 413) {
-                                lastErrorMessage = "PAYLOAD TOO LARGE (413): Proxy rejected image payload. App retried with smaller proxy-safe settings but server response is still too large. Direct Mode is required for full-quality output.";
+                                lastErrorMessage = "PAYLOAD TOO LARGE (413). Use Direct Mode.";
                             } else {
                                 lastErrorMessage = `HTTP error ${lastStatus || (response && response.status)}`;
                             }
@@ -1192,7 +1207,6 @@
                             failCount++;
                         }
                     } catch (imgErr) {
-                        // Continue batch even if one image fails.
                         failCount++;
                         console.error("Batch item failed:", imgErr);
                         if (!lastErrorMessage) lastErrorMessage = imgErr.message || "Unknown batch error";
@@ -1214,6 +1228,11 @@
                 isGenerating = false;
                 loader.style.display = 'none';
                 clearInterval(progressTimer);
+                
+                if (isQueued) {
+                    console.log("Processing queued generation...");
+                    generateImage();
+                }
             }
         }
 
@@ -1394,22 +1413,30 @@
         }
 
         async function syncFromClipboard() {
+            if (!autoWatch.checked) return;
+            
             try {
                 const text = await navigator.clipboard.readText();
-                if (text && text !== lastClipboardText && text.trim().length > 3) {
-                    console.log("SENSOR HIT! Processing:", text.substring(0, 40) + "...");
+                if (text && text !== lastClipboardText && text.trim().length > 2) {
                     lastClipboardText = text;
                     rpInput.value = text;
-                    processRpSync();
                     
-                    // Visual feedback
-                    rpDrawer.style.borderColor = "#0dcaf0";
-                    setTimeout(() => {
-                        rpDrawer.style.borderColor = "rgba(168, 85, 247, 0.5)";
-                    }, 1000);
+                    // Trigger detection immediately
+                    const detected = processRpSync();
+                    
+                    // Instant feedback on the RP button
+                    rpToggleBtn.classList.add('btn-pulse-cyan');
+                    setTimeout(() => rpToggleBtn.classList.remove('btn-pulse-cyan'), 1000);
+
+                    // If keywords found, trigger generation
+                    if (detected && detected.length > 0) {
+                        console.log("Auto-Triggering Generation...");
+                        generateImage();
+                    }
                 }
             } catch (e) {
-                // Silent fail for clipboard access
+                // Clipboard access might be blocked until user interacts
+                console.warn("Clipboard access pending user interaction");
             }
         }
 
@@ -1417,7 +1444,7 @@
             const text = rpInput.value;
             if (!text && !customResult) {
                 keywordPills.innerHTML = '<span class="small text-muted">Ready...</span>';
-                return;
+                return [];
             }
 
             let detected = [];
@@ -1436,7 +1463,7 @@
                             try {
                                 const re = new RegExp(t, 'i');
                                 if (re.test(text)) { matchFound = true; break; }
-                            } catch (e) { console.error("Invalid regex:", t); }
+                            } catch (e) { }
                         } else {
                             if (text.toLowerCase().includes(t.toLowerCase())) { matchFound = true; break; }
                         }
@@ -1455,28 +1482,19 @@
             detected.forEach(k => {
                 const span = document.createElement('span');
                 span.className = 'keyword-pill';
-                span.style.cursor = 'pointer';
-                span.title = 'Click to edit, X to remove';
                 span.innerHTML = `<i class="fas fa-star me-1"></i> ${k} <i class="fas fa-times ms-1 opacity-50 remove-pill" style="font-size:0.6rem;"></i>`;
-                
                 span.onclick = (e) => {
                     if (e.target.classList.contains('remove-pill')) {
-                        const newDetected = detected.filter(w => w !== k);
-                        processRpSync(newDetected);
-                    } else {
-                        const newWord = window.prompt("Edit keyword:", k);
-                        if (newWord !== null && newWord.trim() !== "") {
-                            const newDetected = detected.map(w => w === k ? newWord.trim() : w);
-                            processRpSync(newDetected);
-                        }
+                        processRpSync(detected.filter(w => w !== k));
                     }
                 };
                 keywordPills.appendChild(span);
             });
+
             const fixed = localStorage.getItem('globalContext') || "";
             promptInput.value = (fixed ? fixed + ", " : "") + detected.join(', ');
             
-            if (detected.length > 0) generateImage();
+            return detected;
         }
 
         function clearRp() { rpInput.value = ''; keywordPills.innerHTML = ''; }
