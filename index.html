@@ -166,14 +166,14 @@
             position: absolute;
             bottom: 100px;
             left: 15px;
-            width: 200px;
+            width: 280px;
             background: var(--card-bg);
             border: 1px solid var(--border-color);
             border-radius: 16px;
-            padding: 12px;
+            padding: 16px;
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 12px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
             opacity: 0;
             visibility: hidden;
@@ -181,12 +181,49 @@
             transform-origin: bottom left;
             transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
             z-index: 1100;
+            max-height: 70vh;
+            overflow-y: auto;
         }
 
         .res-drawer.active {
             opacity: 1;
             visibility: visible;
             transform: translateY(0) scale(1);
+        }
+
+        .resource-section {
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 12px;
+            margin-bottom: 8px;
+        }
+
+        .resource-section:last-child {
+            border-bottom: none;
+        }
+
+        .resource-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .lora-item {
+            font-size: 0.75rem;
+            padding: 6px 10px;
+            background: #0f172a;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .lora-item:hover {
+            border-color: var(--accent-color);
+            background: rgba(59, 130, 246, 0.1);
         }
 
         .btn-preset {
@@ -448,9 +485,20 @@
 
                 <div id="dictPanel" class="dict-panel">
                     <div class="dict-editor mb-2">
-                        <input type="text" id="triggerIn" class="form-control form-control-sm mb-2" placeholder="Trigger (e.g. 'sky')">
+                        <div class="row g-2 mb-2">
+                            <div class="col-8">
+                                <input type="text" id="triggerIn" class="form-control form-control-sm" placeholder="Trigger (e.g. 'sky')">
+                            </div>
+                            <div class="col-4">
+                                <input type="number" id="weightIn" class="form-control form-control-sm" value="1.0" step="0.1" title="Weight">
+                            </div>
+                        </div>
                         <textarea id="keywordIn" class="form-control form-control-sm dict-keyword-input mb-2" rows="4" placeholder="Keyword / output description"></textarea>
-                        <div class="d-flex justify-content-end">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="form-check form-switch small">
+                                <input class="form-check-input" type="checkbox" id="regexTrigger">
+                                <label class="form-check-label text-muted" for="regexTrigger" style="font-size: 0.7rem;">Regex</label>
+                            </div>
                             <button class="btn btn-sm btn-info" onclick="addTrigger()"><i class="fas fa-plus"></i></button>
                         </div>
                     </div>
@@ -490,9 +538,17 @@
             <div class="prompt-section">
                 <div class="d-flex justify-content-between align-items-center mb-2">
                     <label class="small fw-bold text-muted">PROMPT</label>
-                    <button class="btn btn-sm btn-outline-secondary py-0" style="font-size: 0.75rem;" onclick="togglePromptHistory()">
-                        History
-                    </button>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-sm btn-outline-info py-0" style="font-size: 0.75rem;" onclick="interrogate('clip')">
+                            CLIP
+                        </button>
+                        <button class="btn btn-sm btn-outline-info py-0" style="font-size: 0.75rem;" onclick="interrogate('deepdanbooru')">
+                            Danbooru
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary py-0" style="font-size: 0.75rem;" onclick="togglePromptHistory()">
+                            History
+                        </button>
+                    </div>
                 </div>
                 <textarea id="prompt" class="form-control mb-3" rows="3" placeholder="A beautiful sunset..."></textarea>
                 
@@ -520,14 +576,47 @@
         </div>
     </div>
 
-    <!-- FIXED BOTTOM PANEL -->
     <div class="fixed-bottom-panel">
         <div id="resDrawer" class="res-drawer">
-            <div class="small text-muted mb-2 fw-bold text-uppercase" style="font-size: 0.7rem;">Aspect Ratio</div>
-            <button class="btn-preset active" onclick="setRes(512, 512, this)">1:1 Square <i class="fas fa-check"></i></button>
-            <button class="btn-preset" onclick="setRes(1024, 1024, this)">1:1 HD <i class="fas fa-check"></i></button>
-            <button class="btn-preset" onclick="setRes(512, 768, this)">2:3 Portrait <i class="fas fa-check"></i></button>
-            <button class="btn-preset" onclick="setRes(768, 512, this)">3:2 Landscape <i class="fas fa-check"></i></button>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="small fw-bold text-uppercase text-muted">Resources</span>
+                <button class="btn btn-sm btn-outline-info py-0" onclick="refreshResources()"><i class="fas fa-sync-alt"></i></button>
+            </div>
+
+            <!-- MODELS SECTION -->
+            <div class="resource-section">
+                <label class="small text-muted fw-bold text-uppercase mb-2" style="font-size: 0.65rem;">Checkpoints</label>
+                <select id="modelSelect" class="form-select form-select-sm" onchange="switchModel(this.value)">
+                    <option value="">Loading models...</option>
+                </select>
+            </div>
+
+            <!-- VAE SECTION -->
+            <div class="resource-section">
+                <label class="small text-muted fw-bold text-uppercase mb-2" style="font-size: 0.65rem;">VAE</label>
+                <select id="vaeSelect" class="form-select form-select-sm" onchange="switchVAE(this.value)">
+                    <option value="None">None</option>
+                    <option value="Automatic">Automatic</option>
+                </select>
+            </div>
+
+            <!-- LORA SECTION -->
+            <div class="resource-section">
+                <label class="small text-muted fw-bold text-uppercase mb-2" style="font-size: 0.65rem;">LoRAs</label>
+                <div id="loraList" class="resource-grid">
+                    <div class="text-muted small">Connect to load LoRAs</div>
+                </div>
+            </div>
+
+            <div class="resource-section">
+                <div class="small text-muted mb-2 fw-bold text-uppercase" style="font-size: 0.65rem;">Aspect Ratio</div>
+                <div class="d-flex flex-column gap-2">
+                    <button class="btn-preset active" onclick="setRes(512, 512, this)">1:1 Square <i class="fas fa-check"></i></button>
+                    <button class="btn-preset" onclick="setRes(1024, 1024, this)">1:1 HD <i class="fas fa-check"></i></button>
+                    <button class="btn-preset" onclick="setRes(512, 768, this)">2:3 Portrait <i class="fas fa-check"></i></button>
+                    <button class="btn-preset" onclick="setRes(768, 512, this)">3:2 Landscape <i class="fas fa-check"></i></button>
+                </div>
+            </div>
         </div>
 
         <div id="settingsDrawer" class="settings-drawer">
@@ -624,9 +713,12 @@
               rpToggleBtn = get('rpToggleBtn'), keywordPills = get('keywordPills'), 
               dictPanel = get('dictPanel'), dictList = get('dictList'),
               triggerIn = get('triggerIn'), keywordIn = get('keywordIn'),
+              weightIn = get('weightIn'), regexTrigger = get('regexTrigger'),
               globalContext = get('globalContext'), 
               useDirect = get('useDirect'), connHelp = get('connHelp'),
-              progressBar = get('progressBar');
+              progressBar = get('progressBar'),
+              modelSelect = get('modelSelect'), vaeSelect = get('vaeSelect'),
+              loraList = get('loraList');
 
         let isGenerating = false;
         let activeProxy = "";
@@ -712,6 +804,129 @@
             }
             return fetch(rawUrl, opts);
         }
+        async function refreshResources() {
+            if (!isApiConnected) return;
+            await Promise.all([fetchModels(), fetchVAEs(), fetchLoras()]);
+        }
+
+        async function fetchModels() {
+            const base = apiUrl.value.trim().replace(/\/$/, '');
+            const url = `${base}/sdapi/v1/sd-models`;
+            const finalUrl = activeProxy ? `${activeProxy}${encodeURIComponent(url)}` : url;
+            try {
+                const res = await localAwareFetch(finalUrl);
+                if (res.ok) {
+                    const models = await res.json();
+                    modelSelect.innerHTML = models.map(m => `<option value="${m.title}">${m.model_name}</option>`).join('');
+                    
+                    // Get current model
+                    const optUrl = `${base}/sdapi/v1/options`;
+                    const optFinalUrl = activeProxy ? `${activeProxy}${encodeURIComponent(optUrl)}` : optUrl;
+                    const optRes = await localAwareFetch(optFinalUrl);
+                    if (optRes.ok) {
+                        const opts = await optRes.json();
+                        modelSelect.value = opts.sd_model_checkpoint;
+                    }
+                }
+            } catch (e) { console.error("Models fetch failed", e); }
+        }
+
+        async function fetchVAEs() {
+            const base = apiUrl.value.trim().replace(/\/$/, '');
+            const url = `${base}/sdapi/v1/sd-vae`;
+            const finalUrl = activeProxy ? `${activeProxy}${encodeURIComponent(url)}` : url;
+            try {
+                const res = await localAwareFetch(finalUrl);
+                if (res.ok) {
+                    const vaes = await res.json();
+                    vaeSelect.innerHTML = '<option value="None">None</option><option value="Automatic">Automatic</option>' + 
+                        vaes.map(v => `<option value="${v.model_name}">${v.model_name}</option>`).join('');
+                }
+            } catch (e) { console.error("VAEs fetch failed", e); }
+        }
+
+        async function fetchLoras() {
+            const base = apiUrl.value.trim().replace(/\/$/, '');
+            const url = `${base}/sdapi/v1/loras`;
+            const finalUrl = activeProxy ? `${activeProxy}${encodeURIComponent(url)}` : url;
+            try {
+                const res = await localAwareFetch(finalUrl);
+                if (res.ok) {
+                    const loras = await res.json();
+                    loraList.innerHTML = loras.map(l => `
+                        <div class="lora-item" onclick="addLoraToPrompt('${l.name}')">
+                            <span>${l.name}</span>
+                            <i class="fas fa-plus-circle text-info"></i>
+                        </div>
+                    `).join('');
+                }
+            } catch (e) { 
+                console.error("LoRAs fetch failed", e);
+                loraList.innerHTML = '<div class="text-danger small">LoRA API not available</div>';
+            }
+        }
+
+        function addLoraToPrompt(name) {
+            const tag = `<lora:${name}:1.0>`;
+            if (!promptInput.value.includes(tag)) {
+                promptInput.value = promptInput.value ? `${promptInput.value}, ${tag}` : tag;
+            }
+        }
+
+        async function switchModel(name) {
+            if (!name) return;
+            const base = apiUrl.value.trim().replace(/\/$/, '');
+            const url = `${base}/sdapi/v1/options`;
+            const finalUrl = activeProxy ? `${activeProxy}${encodeURIComponent(url)}` : url;
+            modelSelect.disabled = true;
+            try {
+                await localAwareFetch(finalUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sd_model_checkpoint: name })
+                });
+            } catch (e) { alert("Failed to switch model: " + e.message); }
+            finally { modelSelect.disabled = false; }
+        }
+
+        async function switchVAE(name) {
+            const base = apiUrl.value.trim().replace(/\/$/, '');
+            const url = `${base}/sdapi/v1/options`;
+            const finalUrl = activeProxy ? `${activeProxy}${encodeURIComponent(url)}` : url;
+            vaeSelect.disabled = true;
+            try {
+                await localAwareFetch(finalUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sd_vae: name })
+                });
+            } catch (e) { alert("Failed to switch VAE: " + e.message); }
+            finally { vaeSelect.disabled = false; }
+        }
+
+        async function interrogate(model) {
+            if (!resultImg.src || resultImg.classList.contains('d-none')) {
+                return alert("Generate or select an image first to interrogate.");
+            }
+            const base = apiUrl.value.trim().replace(/\/$/, '');
+            const url = `${base}/sdapi/v1/interrogate`;
+            const finalUrl = activeProxy ? `${activeProxy}${encodeURIComponent(url)}` : url;
+            
+            const base64 = resultImg.src.split(',')[1];
+            
+            try {
+                const res = await localAwareFetch(finalUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: base64, model: model })
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    promptInput.value = data.caption;
+                }
+            } catch (e) { alert("Interrogation failed: " + e.message); }
+        }
+
         async function checkConnection() {
             let base = apiUrl.value.trim().replace(/\/$/, '');
             if (!base) {
@@ -740,6 +955,7 @@
                     isApiConnected = true;
                     connBadge.textContent = 'DIRECT ONLINE';
                     connBadge.className = 'badge-status bg-success';
+                    refreshResources();
                     return true;
                 }
                 if (res.status === 404) {
@@ -785,6 +1001,7 @@
                         isApiConnected = true;
                         connBadge.textContent = `PROXY ONLINE ${i + 1}`;
                         connBadge.className = 'badge-status bg-success';
+                        refreshResources();
                         return true;
                     }
                 } catch (e) {
@@ -1008,31 +1225,43 @@
 
         function toggleDict() { dictPanel.style.display = dictPanel.style.display === 'block' ? 'none' : 'block'; renderDict(); }
         function addTrigger() {
-            const t = triggerIn.value.trim().toLowerCase();
+            const t = triggerIn.value.trim();
+            const weight = parseFloat(weightIn.value) || 1.0;
+            const isRegex = regexTrigger.checked;
             const entries = keywordIn.value
                 .split(/\r?\n/)
                 .map(v => v.trim())
                 .filter(Boolean);
             if (!t || entries.length === 0) return;
 
-            const existing = normalizeKeywordList(customDict[t]);
-            customDict[t] = [...new Set([...existing, ...entries])];
+            customDict[t] = {
+                keywords: entries,
+                weight: weight,
+                isRegex: isRegex
+            };
             saveCustomDict();
             renderDict();
             keywordIn.value = '';
+            triggerIn.value = '';
             triggerIn.focus();
         }
         function renderDict() {
             dictList.innerHTML = '';
-            Object.entries(customDict).forEach(([t, k]) => {
+            Object.entries(customDict).forEach(([t, data]) => {
                 const item = document.createElement('div');
                 item.className = 'dict-item';
-                const keywords = normalizeKeywordList(k);
-                // URL encode the trigger for safe function calls
+                const keywords = normalizeKeywordList(data.keywords || data);
+                const weight = data.weight || 1.0;
+                const isRegex = data.isRegex || false;
+                
                 const encodedT = encodeURIComponent(t);
                 item.innerHTML = `
                     <div class="d-flex flex-column flex-grow-1 overflow-hidden me-2">
-                        <span class="dict-trigger-text">${t}</span>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="dict-trigger-text">${t}</span>
+                            <span class="badge bg-secondary" style="font-size:0.6rem;">w:${weight}</span>
+                            ${isRegex ? '<span class="badge bg-info" style="font-size:0.6rem;">RGX</span>' : ''}
+                        </div>
                         <span class="dict-keyword-text mt-1">${keywords.join(' • ')}</span>
                     </div>
                     <div class="d-flex gap-1">
@@ -1046,9 +1275,12 @@
 
         function editTrigger(t) {
             const decodedT = decodeURIComponent(t);
-            const keywords = normalizeKeywordList(customDict[decodedT]);
+            const data = customDict[decodedT];
+            const keywords = normalizeKeywordList(data.keywords || data);
             triggerIn.value = decodedT;
             keywordIn.value = keywords.join('\n');
+            weightIn.value = data.weight || 1.0;
+            regexTrigger.checked = data.isRegex || false;
             delete customDict[decodedT];
             saveCustomDict();
             renderDict();
@@ -1102,7 +1334,7 @@
         }
 
         function processRpSync(customResult = null) {
-            const text = rpInput.value.toLowerCase();
+            const text = rpInput.value;
             if (!text && !customResult) {
                 keywordPills.innerHTML = '<span class="small text-muted">Ready...</span>';
                 return;
@@ -1112,8 +1344,25 @@
             if (customResult) {
                 detected = customResult;
             } else {
-                Object.entries(customDict).forEach(([t, k]) => {
-                    if (text.includes(t)) detected.push(...normalizeKeywordList(k));
+                Object.entries(customDict).forEach(([t, data]) => {
+                    const keywords = normalizeKeywordList(data.keywords || data);
+                    const weight = data.weight || 1.0;
+                    const isRegex = data.isRegex || false;
+                    
+                    let match = false;
+                    if (isRegex) {
+                        try {
+                            const re = new RegExp(t, 'i');
+                            match = re.test(text);
+                        } catch (e) { console.error("Invalid regex:", t); }
+                    } else {
+                        match = text.toLowerCase().includes(t.toLowerCase());
+                    }
+
+                    if (match) {
+                        const weightedKeywords = keywords.map(k => weight !== 1.0 ? `(${k}:${weight})` : k);
+                        detected.push(...weightedKeywords);
+                    }
                 });
             }
             
