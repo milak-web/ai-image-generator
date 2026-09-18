@@ -870,7 +870,18 @@
             // Automation Sensor Initialization: FORCE ON
             localStorage.setItem('autoWatch', 'true');
             autoWatch.checked = true;
-            toggleWatch();
+            
+            // Prime the clipboard cache immediately to prevent auto-gen on load
+            navigator.clipboard.readText().then(text => {
+                if (text) {
+                    lastClipboardText = text;
+                    lastProcessedText = text;
+                    console.log("Clipboard primed on load. No auto-gen.");
+                }
+                toggleWatch();
+            }).catch(() => {
+                toggleWatch();
+            });
             
             renderDict();
             checkConnection();
@@ -879,8 +890,12 @@
             window.addEventListener('click', () => {
                 // One-time silent read to trigger permission prompt
                 if (autoWatch.checked && !window._clipPrimed) {
-                    navigator.clipboard.readText().then(() => {
+                    navigator.clipboard.readText().then(text => {
                         window._clipPrimed = true;
+                        if (text) {
+                            lastClipboardText = text;
+                            lastProcessedText = text;
+                        }
                         console.log("Clipboard API Primed.");
                     }).catch(() => {});
                 }
@@ -889,7 +904,9 @@
             window.addEventListener('paste', (e) => {
                 const text = e.clipboardData.getData('text');
                 if (text) {
-                    console.log("Manual Paste Detected - Processing...");
+                    console.log("Manual Paste Detected - Syncing cache...");
+                    lastClipboardText = text;
+                    lastProcessedText = text;
                     rpInput.value = text;
                     processRpSync();
                 }
@@ -1514,25 +1531,28 @@
 
         async function syncFromClipboard() {
             if (!autoWatch.checked) return;
+            
+            // Respect Manual Edits: If the user is actively typing, don't overwrite their work
+            if (document.activeElement === rpInput) return;
 
             try {
                 const text = await navigator.clipboard.readText();
                 
-                // If text is new to the sync engine
+                // Only act if the clipboard content is DIFFERENT from what we last saw
                 if (text && text !== lastClipboardText) {
+                    console.log("New clipboard content detected. Syncing...");
                     lastClipboardText = text;
                     
-                    // Update UI immediately
+                    // Update UI
                     rpInput.value = text;
                     rpInput.dispatchEvent(new Event('input', { bubbles: true }));
 
-                    // Extract keywords immediately
+                    // Extract keywords
                     const detected = processRpSync();
                     
-                    // ONLY trigger generation if this EXACT text hasn't been generated yet
+                    // ONLY trigger generation if this specific content is new to the generation engine
                     if (detected && detected.length > 0 && text !== lastProcessedText) {
-                        console.log("SUPERFAST: Keyword detected, triggering generation!");
-                        lastProcessedText = text; // Mark this specific clipboard content as processed
+                        lastProcessedText = text;
                         
                         // Visual feedback
                         rpInput.classList.add('is-valid');
@@ -1542,13 +1562,12 @@
                             rpToggleBtn.classList.remove('btn-pulse-cyan');
                         }, 500);
 
-                        // Start generation immediately
-                        if (isGenerating) isGenerating = false;
+                        console.log("Automated trigger firing for unique keywords.");
                         generateImage();
                     }
                 }
             } catch (e) {
-                // NotAllowedError is common when tab isn't focused
+                // Background errors are silent
             }
         }
 
