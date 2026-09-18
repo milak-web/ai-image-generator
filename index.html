@@ -530,6 +530,8 @@
                             <label class="form-check-label text-muted" style="font-size:0.7rem;" for="autoWatch">Sensor</label>
                         </div>
                         <button class="btn-icon-sm" onclick="toggleDict()" title="Manage Triggers"><i class="fas fa-book"></i></button>
+                        <button class="btn-icon-sm" onclick="exportKeywords()" title="Backup Keywords"><i class="fas fa-file-export"></i></button>
+                        <button class="btn-icon-sm" onclick="importKeywords()" title="Restore Keywords"><i class="fas fa-file-import"></i></button>
                         <button class="btn-icon-sm" onclick="clearRp()"><i class="fas fa-trash"></i></button>
                     </div>
                 </div>
@@ -806,6 +808,7 @@
         let lastClipboardText = "";
         let watchInterval = null;
         let customDict = JSON.parse(localStorage.getItem('rpDictionary') || '{}');
+        
         function normalizeKeywordList(value) {
             if (Array.isArray(value)) {
                 return [...new Set(value.map(v => String(v).trim()).filter(Boolean))];
@@ -813,13 +816,41 @@
             const single = String(value || '').trim();
             return single ? [single] : [];
         }
+
         function saveCustomDict() {
             localStorage.setItem('rpDictionary', JSON.stringify(customDict));
         }
-        customDict = Object.fromEntries(
-            Object.entries(customDict).map(([trigger, keywords]) => [trigger, normalizeKeywordList(keywords)])
-        );
-        saveCustomDict();
+
+        // MIGRATION & PERSISTENCE FIX
+        function migrateDict() {
+            let migrated = false;
+            const newDict = {};
+            
+            Object.entries(customDict).forEach(([key, val]) => {
+                // If it's the old structure: trigger -> [keywords]
+                if (Array.isArray(val)) {
+                    const id = btoa(key).substring(0, 16);
+                    newDict[id] = {
+                        output: val.join(', '),
+                        triggers: [key],
+                        weight: 1.0,
+                        isRegex: false
+                    };
+                    migrated = true;
+                } 
+                // If it's the new structure: id -> { output, triggers, ... }
+                else if (val && typeof val === 'object' && val.output) {
+                    newDict[key] = val;
+                }
+            });
+
+            if (migrated || Object.keys(newDict).length !== Object.keys(customDict).length) {
+                customDict = newDict;
+                saveCustomDict();
+            }
+        }
+        
+        migrateDict();
         let progressTimer = null;
         window.onload = () => {
             if (localStorage.getItem('useDirect') === 'true') useDirect.checked = true;
@@ -1390,6 +1421,45 @@
                 saveCustomDict();
                 renderDict();
             }
+        }
+
+        function exportKeywords() {
+            const data = JSON.stringify(customDict, null, 2);
+            const blob = new Blob([data], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `pixelforge-keywords-${Date.now()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function importKeywords() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const imported = JSON.parse(event.target.result);
+                        if (confirm("Merge with existing keywords? (Cancel to replace all)")) {
+                            customDict = { ...customDict, ...imported };
+                        } else {
+                            customDict = imported;
+                        }
+                        migrateDict();
+                        saveCustomDict();
+                        renderDict();
+                        alert("Keywords imported successfully!");
+                    } catch (err) {
+                        alert("Failed to import keywords: Invalid JSON file.");
+                    }
+                };
+                reader.readAsText(file);
+            };
+            input.click();
         }
 
         function toggleWatch() {
