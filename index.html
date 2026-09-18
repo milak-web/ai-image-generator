@@ -866,18 +866,33 @@
             if (globalContext) globalContext.value = localStorage.getItem('globalContext') || '';
             loadHistory();
             
-            // Automation Sensor Initialization
-            const savedWatch = localStorage.getItem('autoWatch');
-            if (savedWatch === null || savedWatch === 'true') {
-                localStorage.setItem('autoWatch', 'true');
-                autoWatch.checked = true;
-                toggleWatch();
-            } else {
-                autoWatch.checked = false;
-            }
+            // Automation Sensor Initialization: FORCE ON
+            localStorage.setItem('autoWatch', 'true');
+            autoWatch.checked = true;
+            toggleWatch();
             
             renderDict();
             checkConnection();
+
+            // FALLBACK & PERMISSION PRIMING
+            window.addEventListener('click', () => {
+                // One-time silent read to trigger permission prompt
+                if (autoWatch.checked && !window._clipPrimed) {
+                    navigator.clipboard.readText().then(() => {
+                        window._clipPrimed = true;
+                        console.log("Clipboard API Primed.");
+                    }).catch(() => {});
+                }
+            }, { once: true });
+
+            window.addEventListener('paste', (e) => {
+                const text = e.clipboardData.getData('text');
+                if (text) {
+                    console.log("Manual Paste Detected - Processing...");
+                    rpInput.value = text;
+                    processRpSync();
+                }
+            });
         };
 
         function toggleDirect() {
@@ -1485,9 +1500,8 @@
                 syncFromClipboard();
                 
                 if (watchInterval) clearInterval(watchInterval);
-                watchInterval = setInterval(syncFromClipboard, 500); // Increased frequency
-
-                // Add focus listener for immediate sync when switching back to tab
+                watchInterval = setInterval(syncFromClipboard, 200); // SUPERFAST: 5 times per second
+                
                 window.addEventListener('focus', syncFromClipboard);
             } else {
                 localStorage.setItem('autoWatch', 'false');
@@ -1500,28 +1514,56 @@
         async function syncFromClipboard() {
             if (!autoWatch.checked) return;
             
+            // Safety check for focus to avoid some browser errors
+            if (!document.hasFocus()) return;
+
             try {
+                // Check permissions if supported
+                if (navigator.permissions && navigator.permissions.query) {
+                    const status = await navigator.permissions.query({ name: "clipboard-read" });
+                    if (status.state === "denied") {
+                        console.error("Clipboard permission denied. Please enable it in browser settings.");
+                        return;
+                    }
+                }
+
                 const text = await navigator.clipboard.readText();
-                if (text && text !== lastClipboardText && text.trim().length > 2) {
+                if (text && text !== lastClipboardText) {
+                    console.log("Superfast Sync: New text detected!");
                     lastClipboardText = text;
+                    
+                    // FORCE UPDATE UI
                     rpInput.value = text;
+                    rpInput.classList.add('is-valid');
+                    setTimeout(() => rpInput.classList.remove('is-valid'), 1000);
+                    rpInput.dispatchEvent(new Event('input', { bubbles: true }));
                     
                     // Trigger detection immediately
                     const detected = processRpSync();
                     
-                    // Instant feedback on the RP button
+                    // Visual feedback
                     rpToggleBtn.classList.add('btn-pulse-cyan');
-                    setTimeout(() => rpToggleBtn.classList.remove('btn-pulse-cyan'), 1000);
+                    setTimeout(() => rpToggleBtn.classList.remove('btn-pulse-cyan'), 500);
 
-                    // If keywords found, trigger generation
+                    // If keywords found, trigger generation IMMEDIATELY
                     if (detected && detected.length > 0) {
-                        console.log("Auto-Triggering Generation...");
+                        console.log("SUPERFAST: Keyword detected, firing generation!");
+                        if (isGenerating) isGenerating = false; 
                         generateImage();
                     }
                 }
             } catch (e) {
-                // Clipboard access might be blocked until user interacts
-                console.warn("Clipboard access pending user interaction");
+                // Log the exact error to help debugging
+                console.error("Clipboard Error:", e.name, e.message);
+                
+                // If it's a NotAllowedError, it's definitely a permission issue
+                if (e.name === 'NotAllowedError') {
+                    // One-time notification in the console
+                    if (!window._clipErrorNotified) {
+                        console.warn("ACTION REQUIRED: Click anywhere on the page once to allow clipboard access.");
+                        window._clipErrorNotified = true;
+                    }
+                }
             }
         }
 
