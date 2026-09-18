@@ -1500,45 +1500,42 @@
                 syncFromClipboard();
                 
                 if (watchInterval) clearInterval(watchInterval);
-                watchInterval = setInterval(syncFromClipboard, 200); // SUPERFAST: 5 times per second
+                watchInterval = setInterval(syncFromClipboard, 200); 
                 
                 window.addEventListener('focus', syncFromClipboard);
+                // Reset last text on blur so refocusing always re-checks even if same text
+                window.addEventListener('blur', clearLastClip);
             } else {
                 localStorage.setItem('autoWatch', 'false');
                 clearInterval(watchInterval);
                 window.removeEventListener('focus', syncFromClipboard);
+                window.removeEventListener('blur', clearLastClip);
                 console.log("Automation Sensor: OFFLINE");
             }
         }
 
+        function clearLastClip() {
+            lastClipboardText = ""; 
+            console.log("Clipboard cache cleared (window blurred)");
+        }
+
         async function syncFromClipboard() {
             if (!autoWatch.checked) return;
-            
-            // Safety check for focus to avoid some browser errors
-            if (!document.hasFocus()) return;
 
             try {
-                // Check permissions if supported
-                if (navigator.permissions && navigator.permissions.query) {
-                    const status = await navigator.permissions.query({ name: "clipboard-read" });
-                    if (status.state === "denied") {
-                        console.error("Clipboard permission denied. Please enable it in browser settings.");
-                        return;
-                    }
-                }
-
                 const text = await navigator.clipboard.readText();
+                
                 if (text && text !== lastClipboardText) {
-                    console.log("Superfast Sync: New text detected!");
+                    console.log("Automation Sync: New text detected");
                     lastClipboardText = text;
                     
-                    // FORCE UPDATE UI
+                    // Update Roleplay Section
                     rpInput.value = text;
                     rpInput.classList.add('is-valid');
                     setTimeout(() => rpInput.classList.remove('is-valid'), 1000);
                     rpInput.dispatchEvent(new Event('input', { bubbles: true }));
-                    
-                    // Trigger detection immediately
+
+                    // Trigger detection
                     const detected = processRpSync();
                     
                     // Visual feedback
@@ -1547,22 +1544,15 @@
 
                     // If keywords found, trigger generation IMMEDIATELY
                     if (detected && detected.length > 0) {
-                        console.log("SUPERFAST: Keyword detected, firing generation!");
-                        if (isGenerating) isGenerating = false; 
+                        console.log("SUPERFAST: Keyword found, triggering generation!");
+                        if (isGenerating) isGenerating = false;
                         generateImage();
                     }
                 }
             } catch (e) {
-                // Log the exact error to help debugging
-                console.error("Clipboard Error:", e.name, e.message);
-                
-                // If it's a NotAllowedError, it's definitely a permission issue
-                if (e.name === 'NotAllowedError') {
-                    // One-time notification in the console
-                    if (!window._clipErrorNotified) {
-                        console.warn("ACTION REQUIRED: Click anywhere on the page once to allow clipboard access.");
-                        window._clipErrorNotified = true;
-                    }
+                // NotAllowedError is common when tab isn't focused, so we don't spam console
+                if (e.name !== 'NotAllowedError') {
+                    console.warn("Sync Error:", e.message);
                 }
             }
         }
