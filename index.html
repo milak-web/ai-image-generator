@@ -361,14 +361,68 @@
         }
 
         .dict-item {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            margin-bottom: 10px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+
+        .dict-header {
+            padding: 10px 12px;
+            background: rgba(255,255,255,0.02);
             display: flex;
             justify-content: space-between;
-            align-items: flex-start;
-            background: rgba(255,255,255,0.05);
-            padding: 8px 10px;
-            border-radius: 8px;
-            margin-bottom: 8px;
-            font-size: 0.86rem;
+            align-items: center;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .dict-header:hover {
+            background: rgba(255,255,255,0.08);
+        }
+
+        .dict-content {
+            padding: 12px;
+            border-top: 1px solid var(--border-color);
+            display: none;
+            background: rgba(0,0,0,0.2);
+        }
+
+        .dict-content.active {
+            display: block;
+        }
+
+        .trigger-tag {
+            display: inline-flex;
+            align-items: center;
+            background: rgba(59, 130, 246, 0.15);
+            color: #60a5fa;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            margin-right: 4px;
+            margin-bottom: 4px;
+        }
+
+        .btn-icon-xs {
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            transition: all 0.2s;
+        }
+
+        .btn-icon-xs:hover {
+            color: var(--text-main);
+            background: rgba(255,255,255,0.1);
         }
 
         .dict-trigger-text {
@@ -484,22 +538,28 @@
                 <div id="keywordPills" class="d-flex flex-wrap" style="min-height: 96px; max-height: 180px; overflow-y: auto; align-content: flex-start;"></div>
 
                 <div id="dictPanel" class="dict-panel">
-                    <div class="dict-editor mb-2">
+                    <div class="dict-editor mb-3">
+                        <label class="small text-muted fw-bold mb-1">KEYWORD / OUTPUT</label>
+                        <textarea id="keywordIn" class="form-control form-control-sm dict-keyword-input mb-2" rows="3" placeholder="e.g. 'high quality, detailed eyes'"></textarea>
+                        
+                        <label class="small text-muted fw-bold mb-1">TRIGGERS (Comma separated)</label>
                         <div class="row g-2 mb-2">
                             <div class="col-8">
-                                <input type="text" id="triggerIn" class="form-control form-control-sm" placeholder="Trigger (e.g. 'sky')">
+                                <input type="text" id="triggerIn" class="form-control form-control-sm" placeholder="e.g. 'eye, looking at viewer'">
                             </div>
                             <div class="col-4">
                                 <input type="number" id="weightIn" class="form-control form-control-sm" value="1.0" step="0.1" title="Weight">
                             </div>
                         </div>
-                        <textarea id="keywordIn" class="form-control form-control-sm dict-keyword-input mb-2" rows="4" placeholder="Keyword / output description"></textarea>
+                        
                         <div class="d-flex justify-content-between align-items-center">
                             <div class="form-check form-switch small">
                                 <input class="form-check-input" type="checkbox" id="regexTrigger">
                                 <label class="form-check-label text-muted" for="regexTrigger" style="font-size: 0.7rem;">Regex</label>
                             </div>
-                            <button class="btn btn-sm btn-info" onclick="addTrigger()"><i class="fas fa-plus"></i></button>
+                            <button class="btn btn-sm btn-info px-3" onclick="addTrigger()">
+                                <i class="fas fa-plus me-1"></i> Add Rule
+                            </button>
                         </div>
                     </div>
                     <div id="dictList"></div>
@@ -1225,72 +1285,89 @@
 
         function toggleDict() { dictPanel.style.display = dictPanel.style.display === 'block' ? 'none' : 'block'; renderDict(); }
         function addTrigger() {
-            const t = triggerIn.value.trim();
+            const keywordText = keywordIn.value.trim();
+            const triggersText = triggerIn.value.trim();
             const weight = parseFloat(weightIn.value) || 1.0;
             const isRegex = regexTrigger.checked;
-            const entries = keywordIn.value
-                .split(/\r?\n/)
-                .map(v => v.trim())
-                .filter(Boolean);
-            if (!t || entries.length === 0) return;
 
-            customDict[t] = {
-                keywords: entries,
+            if (!keywordText || !triggersText) return alert("Both keyword and triggers are required.");
+
+            const triggers = triggersText.split(',').map(t => t.trim()).filter(Boolean);
+            
+            // We use the keyword text as a unique key for grouping
+            const id = btoa(keywordText).substring(0, 16); 
+            
+            customDict[id] = {
+                output: keywordText,
+                triggers: triggers,
                 weight: weight,
                 isRegex: isRegex
             };
+
             saveCustomDict();
             renderDict();
-            keywordIn.value = '';
+            
+            // Clear only trigger input to allow adding more rules for different triggers quickly
             triggerIn.value = '';
             triggerIn.focus();
         }
+
         function renderDict() {
             dictList.innerHTML = '';
-            Object.entries(customDict).forEach(([t, data]) => {
+            Object.entries(customDict).forEach(([id, data]) => {
                 const item = document.createElement('div');
                 item.className = 'dict-item';
-                const keywords = normalizeKeywordList(data.keywords || data);
+                
+                const output = data.output || "";
+                const triggers = Array.isArray(data.triggers) ? data.triggers : [data.triggers || ""];
                 const weight = data.weight || 1.0;
                 const isRegex = data.isRegex || false;
                 
-                const encodedT = encodeURIComponent(t);
                 item.innerHTML = `
-                    <div class="d-flex flex-column flex-grow-1 overflow-hidden me-2">
-                        <div class="d-flex align-items-center gap-2">
-                            <span class="dict-trigger-text">${t}</span>
-                            <span class="badge bg-secondary" style="font-size:0.6rem;">w:${weight}</span>
-                            ${isRegex ? '<span class="badge bg-info" style="font-size:0.6rem;">RGX</span>' : ''}
+                    <div class="dict-header" onclick="this.nextElementSibling.classList.toggle('active')">
+                        <div class="d-flex flex-column overflow-hidden me-2">
+                            <span class="dict-keyword-text text-truncate fw-bold" style="color:#7dd3fc; font-size:0.85rem;">${output}</span>
+                            <div class="d-flex align-items-center gap-2 mt-1">
+                                <span class="badge bg-dark border border-secondary text-muted" style="font-size:0.6rem;">${triggers.length} triggers</span>
+                                <span class="badge bg-secondary" style="font-size:0.6rem;">w:${weight}</span>
+                                ${isRegex ? '<span class="badge bg-info" style="font-size:0.6rem;">RGX</span>' : ''}
+                            </div>
                         </div>
-                        <span class="dict-keyword-text mt-1">${keywords.join(' • ')}</span>
+                        <div class="d-flex gap-1" onclick="event.stopPropagation()">
+                            <button class="btn-icon-xs" onclick="editTrigger('${id}')"><i class="fas fa-edit"></i></button>
+                            <button class="btn-icon-xs text-danger" onclick="removeTrigger('${id}')"><i class="fas fa-trash"></i></button>
+                            <i class="fas fa-chevron-down ms-2 text-muted" style="font-size:0.7rem;"></i>
+                        </div>
                     </div>
-                    <div class="d-flex gap-1">
-                        <button class="btn btn-sm btn-link text-info p-0" onclick="editTrigger('${encodedT}')"><i class="fas fa-edit"></i></button>
-                        <button class="btn btn-sm btn-link text-danger p-0" onclick="removeTrigger('${encodedT}')"><i class="fas fa-times"></i></button>
+                    <div class="dict-content">
+                        <div class="small text-muted mb-2 text-uppercase" style="font-size:0.6rem; letter-spacing:1px;">Triggers</div>
+                        <div class="d-flex flex-wrap">
+                            ${triggers.map(t => `<span class="trigger-tag">${t}</span>`).join('')}
+                        </div>
                     </div>
                 `;
                 dictList.appendChild(item);
             });
         }
 
-        function editTrigger(t) {
-            const decodedT = decodeURIComponent(t);
-            const data = customDict[decodedT];
-            const keywords = normalizeKeywordList(data.keywords || data);
-            triggerIn.value = decodedT;
-            keywordIn.value = keywords.join('\n');
+        function editTrigger(id) {
+            const data = customDict[id];
+            if (!data) return;
+
+            keywordIn.value = data.output;
+            triggerIn.value = (Array.isArray(data.triggers) ? data.triggers : [data.triggers]).join(', ');
             weightIn.value = data.weight || 1.0;
             regexTrigger.checked = data.isRegex || false;
-            delete customDict[decodedT];
+
+            delete customDict[id];
             saveCustomDict();
             renderDict();
-            triggerIn.focus();
+            keywordIn.focus();
         }
 
-        function removeTrigger(t) {
-            const decodedT = decodeURIComponent(t);
-            if (confirm(`Delete rule for: ${decodedT}?`)) {
-                delete customDict[decodedT];
+        function removeTrigger(id) {
+            if (confirm("Delete this keyword set?")) {
+                delete customDict[id];
                 saveCustomDict();
                 renderDict();
             }
@@ -1301,14 +1378,17 @@
                 localStorage.setItem('autoWatch', 'true');
                 console.log("Automation Sensor: ACTIVATED");
                 
-                // Immediate first check
                 syncFromClipboard();
                 
                 if (watchInterval) clearInterval(watchInterval);
-                watchInterval = setInterval(syncFromClipboard, 1000);
+                watchInterval = setInterval(syncFromClipboard, 500); // Increased frequency
+
+                // Add focus listener for immediate sync when switching back to tab
+                window.addEventListener('focus', syncFromClipboard);
             } else {
                 localStorage.setItem('autoWatch', 'false');
                 clearInterval(watchInterval);
+                window.removeEventListener('focus', syncFromClipboard);
                 console.log("Automation Sensor: OFFLINE");
             }
         }
@@ -1344,24 +1424,27 @@
             if (customResult) {
                 detected = customResult;
             } else {
-                Object.entries(customDict).forEach(([t, data]) => {
-                    const keywords = normalizeKeywordList(data.keywords || data);
+                Object.values(customDict).forEach(data => {
+                    const output = data.output;
+                    const triggers = Array.isArray(data.triggers) ? data.triggers : [data.triggers];
                     const weight = data.weight || 1.0;
                     const isRegex = data.isRegex || false;
                     
-                    let match = false;
-                    if (isRegex) {
-                        try {
-                            const re = new RegExp(t, 'i');
-                            match = re.test(text);
-                        } catch (e) { console.error("Invalid regex:", t); }
-                    } else {
-                        match = text.toLowerCase().includes(t.toLowerCase());
+                    let matchFound = false;
+                    for (const t of triggers) {
+                        if (isRegex) {
+                            try {
+                                const re = new RegExp(t, 'i');
+                                if (re.test(text)) { matchFound = true; break; }
+                            } catch (e) { console.error("Invalid regex:", t); }
+                        } else {
+                            if (text.toLowerCase().includes(t.toLowerCase())) { matchFound = true; break; }
+                        }
                     }
 
-                    if (match) {
-                        const weightedKeywords = keywords.map(k => weight !== 1.0 ? `(${k}:${weight})` : k);
-                        detected.push(...weightedKeywords);
+                    if (matchFound) {
+                        const finalKeyword = weight !== 1.0 ? `(${output}:${weight})` : output;
+                        detected.push(finalKeyword);
                     }
                 });
             }
