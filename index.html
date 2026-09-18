@@ -826,27 +826,35 @@
             let migrated = false;
             const newDict = {};
             
-            Object.entries(customDict).forEach(([key, val]) => {
-                // If it's the old structure: trigger -> [keywords]
-                if (Array.isArray(val)) {
-                    const id = btoa(key).substring(0, 16);
-                    newDict[id] = {
-                        output: val.join(', '),
-                        triggers: [key],
-                        weight: 1.0,
-                        isRegex: false
-                    };
-                    migrated = true;
-                } 
-                // If it's the new structure: id -> { output, triggers, ... }
-                else if (val && typeof val === 'object' && val.output) {
-                    newDict[key] = val;
-                }
-            });
+            try {
+                const stored = localStorage.getItem('rpDictionary');
+                if (!stored) return;
+                
+                const data = JSON.parse(stored);
+                Object.entries(data).forEach(([key, val]) => {
+                    // Old structure: trigger -> [keywords]
+                    if (Array.isArray(val)) {
+                        const id = 'mig_' + Math.random().toString(36).substr(2, 9);
+                        newDict[id] = {
+                            output: val.join(', '),
+                            triggers: [key],
+                            weight: 1.0,
+                            isRegex: false
+                        };
+                        migrated = true;
+                    } 
+                    // New structure
+                    else if (val && typeof val === 'object' && val.output) {
+                        newDict[key] = val;
+                    }
+                });
 
-            if (migrated || Object.keys(newDict).length !== Object.keys(customDict).length) {
-                customDict = newDict;
-                saveCustomDict();
+                if (migrated || Object.keys(newDict).length > 0) {
+                    customDict = newDict;
+                    saveCustomDict();
+                }
+            } catch (e) {
+                console.error("Migration failed", e);
             }
         }
         
@@ -858,6 +866,7 @@
             if (globalContext) globalContext.value = localStorage.getItem('globalContext') || '';
             loadHistory();
             checkConnection();
+            renderDict(); // Ensure keywords are visible on load
             // Restore sensor state
             if (localStorage.getItem('autoWatch') === 'true') {
                 autoWatch.checked = true;
@@ -1344,8 +1353,8 @@
 
             const triggers = triggersText.split(',').map(t => t.trim()).filter(Boolean);
             
-            // We use the keyword text as a unique key for grouping
-            const id = btoa(keywordText).substring(0, 16); 
+            // Unicode-safe unique ID
+            const id = 'kw_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
             
             customDict[id] = {
                 output: keywordText,
@@ -1357,7 +1366,6 @@
             saveCustomDict();
             renderDict();
             
-            // Clear only trigger input to allow adding more rules for different triggers quickly
             triggerIn.value = '';
             triggerIn.focus();
         }
