@@ -1521,12 +1521,32 @@
                 watchInterval = setInterval(syncFromClipboard, 150); // Faster polling
                 
                 window.addEventListener('focus', syncFromClipboard);
+                window.addEventListener('visibilitychange', onVisibilityChange);
+                window.addEventListener('blur', clearSyncCache);
+                // Mouseenter as a fallback trigger to avoid "click requirement"
+                window.addEventListener('mouseenter', syncFromClipboard);
             } else {
                 localStorage.setItem('autoWatch', 'false');
                 clearInterval(watchInterval);
                 window.removeEventListener('focus', syncFromClipboard);
+                window.removeEventListener('visibilitychange', onVisibilityChange);
+                window.removeEventListener('blur', clearSyncCache);
+                window.removeEventListener('mouseenter', syncFromClipboard);
                 console.log("Automation Sensor: OFFLINE");
             }
+        }
+
+        function onVisibilityChange() {
+            if (document.visibilityState === 'visible') {
+                syncFromClipboard();
+            }
+        }
+
+        function clearSyncCache() {
+            // Resetting these allows the same text to be re-processed when you return to the app
+            lastClipboardText = "";
+            lastProcessedText = "";
+            console.log("Automation Cache Reset: Ready for re-triggering same text.");
         }
 
         async function syncFromClipboard() {
@@ -1538,7 +1558,7 @@
             try {
                 const text = await navigator.clipboard.readText();
                 
-                // Only act if the clipboard content is DIFFERENT from what we last saw
+                // Only act if the clipboard content is DIFFERENT from what we last saw (or if cache was reset)
                 if (text && text !== lastClipboardText) {
                     console.log("New clipboard content detected. Syncing...");
                     lastClipboardText = text;
@@ -1550,7 +1570,7 @@
                     // Extract keywords
                     const detected = processRpSync();
                     
-                    // ONLY trigger generation if this specific content is new to the generation engine
+                    // ONLY trigger generation if this specific content is new to the generation engine (since last reset)
                     if (detected && detected.length > 0 && text !== lastProcessedText) {
                         lastProcessedText = text;
                         
@@ -1567,7 +1587,7 @@
                     }
                 }
             } catch (e) {
-                // Background errors are silent
+                // Background errors are silent (often happens when window is not focused)
             }
         }
 
